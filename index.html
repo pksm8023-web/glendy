@@ -753,11 +753,23 @@ function populateSectors(){
     sel.appendChild(opt);
   });
 }
-// ============ CACHE (localStorage, 하루 단위) ============
-const CACHE_KEY = 'watchlist_data_cache_v1';
+// ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
+const CACHE_KEY = 'watchlist_data_cache_v2';
 function todayKey(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+// series [{t,c},...] -> {t0, ts:[timestamps], c:[closes]} 압축
+function packSeries(series){
+  if(!series||!series.length) return null;
+  return {
+    ts: series.map(p=>Math.round(p.t/1000)),      // 초 단위 (자릿수↓)
+    c: series.map(p=>Math.round(p.c*100)/100)      // 소수 2자리
+  };
+}
+function unpackSeries(packed){
+  if(!packed||!packed.ts) return [];
+  return packed.ts.map((t,i)=>({t:t*1000, c:packed.c[i]}));
 }
 function saveCache(){
   try{
@@ -766,15 +778,16 @@ function saveCache(){
       fx: FX,
       stocks: STOCKS.map(s=>({
         code:s.code,
-        data:s._data ? {
-          price:s._data.price, prevClose:s._data.prevClose, dailyChg:s._data.dailyChg,
-          currency:s._data.currency, series:s._data.series, mcap:s._data.mcap, mcapCur:s._data.mcapCur
+        d:s._data ? {
+          p:s._data.price, pc:s._data.prevClose, dc:s._data.dailyChg,
+          cur:s._data.currency, mc:s._data.mcap, mcc:s._data.mcapCur,
+          s:packSeries(s._data.series)
         } : null,
-        err:s._err
+        e:s._err
       }))
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-  }catch(e){}
+  }catch(e){ /* 용량 초과 등 무시 */ }
 }
 function loadCache(){
   try{
@@ -791,7 +804,17 @@ function applyCache(cache){
   cache.stocks.forEach(c=>byCode[c.code]=c);
   STOCKS.forEach(s=>{
     const c=byCode[s.code];
-    if(c){ s._data=c.data; s._err=c.err; }
+    if(!c) return;
+    s._err=c.e;
+    if(c.d){
+      s._data={
+        price:c.d.p, prevClose:c.d.pc, dailyChg:c.d.dc,
+        currency:c.d.cur, mcap:c.d.mc, mcapCur:c.d.mcc,
+        series:unpackSeries(c.d.s)
+      };
+    }else{
+      s._data=null;
+    }
   });
 }
 // 신규 종목만 시총 받아오기
