@@ -1,0 +1,2 @@
+# glendy
+global trend study
