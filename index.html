@@ -484,10 +484,23 @@ function fmtPrice(v,cur){
   return v.toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec});
 }
 function fmtChg(v){ if(v==null)return '-';return (v>=0?'+':'')+v.toFixed(2)+'%'; }
+// 펜스(GBp/GBX) 등 소단위 통화를 주단위로 정규화
+// 반환: { value: 주단위 금액, cur: 주통화코드 }
+function normalizeMcap(amount, cur){
+  if(!cur) return {value:amount, cur:cur};
+  const c=cur.trim();
+  // 영국 펜스: GBp(소문자 p) 또는 GBX → GBP (÷100)
+  if(c==='GBp' || c==='GBX' || c==='GBpX'){
+    return {value:amount/100, cur:'GBP'};
+  }
+  // 남아공 센트(ZAc), 이스라엘 아고롯(ILA) 등도 필요시 여기 추가 가능
+  return {value:amount, cur:c};
+}
 function mcapKRW(s){
   const d=s._data;if(!d||!d.mcap)return null;
-  const rate=FX[d.mcapCur||d.currency];if(!rate)return null;
-  return d.mcap*rate/1e12; // 조 KRW
+  const norm=normalizeMcap(d.mcap, d.mcapCur||d.currency);
+  const rate=FX[norm.cur];if(!rate)return null;
+  return norm.value*rate/1e12; // 조 KRW
 }
 function fmtMcapKRW(s){
   const v=mcapKRW(s);if(v==null)return null;
@@ -496,9 +509,9 @@ function fmtMcapKRW(s){
 }
 function fmtMcapLocal(s){
   const d=s._data;if(!d||!d.mcap)return null;
-  const b=d.mcap/1e9; // Billion
-  const cur=d.mcapCur||d.currency;
-  return b.toLocaleString(undefined,{maximumFractionDigits:1})+' B '+cur;
+  const norm=normalizeMcap(d.mcap, d.mcapCur||d.currency);
+  const b=norm.value/1e9; // Billion
+  return b.toLocaleString(undefined,{maximumFractionDigits:1})+' B '+norm.cur;
 }
 
 // ============ RENDER ============
