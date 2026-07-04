@@ -1,0 +1,10 @@
+{
+  "name": "global-trend-study-watchlist",
+  "version": "1.0.0",
+  "private": true,
+  "description": "글로벌 관심종목 현황판 - Yahoo Finance 기반",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}
