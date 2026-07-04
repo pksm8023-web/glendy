@@ -449,7 +449,7 @@ async function fetchMarketCaps(){
       const bySym={};list.forEach(q=>bySym[q.symbol]=q);
       batch.forEach(s=>{
         const q=bySym[s.code];
-        if(q&&q.marketCap){ s._data.mcap=q.marketCap; s._data.mcapCur=q.currency||s._data.currency; }
+        assignMcap(s,q);
       });
     }catch(e){}
     await new Promise(r=>setTimeout(r,300));
@@ -468,6 +468,27 @@ async function fetchFX(currencies){
     }catch(e){}
   }));
   FX['KRW']=1;
+
+  // 직접 KRW 환율이 실패한 통화는 USD 경유로 우회 (USDKRW × cur→USD)
+  const missing=need.filter(c=>!FX[c]);
+  if(missing.length && !FX['USD']){
+    try{
+      const res=await fetch(yahooChart('USDKRW=X','5d','1d'));
+      const json=await res.json();
+      const closes=(json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(x=>x!=null);
+      if(closes.length) FX['USD']=closes[closes.length-1];
+    }catch(e){}
+  }
+  await Promise.all(missing.map(async cur=>{
+    if(!FX['USD']) return;
+    try{
+      // cur -> USD 환율 (예: NOKUSD=X)
+      const res=await fetch(yahooChart(`${cur}USD=X`,'5d','1d'));
+      const json=await res.json();
+      const closes=(json?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(x=>x!=null);
+      if(closes.length) FX[cur]=closes[closes.length-1]*FX['USD'];
+    }catch(e){}
+  }));
 }
 
 // ============ SERIES SLICE + PERIOD CHANGE ============
@@ -497,6 +518,23 @@ function fmtPrice(v,cur){
 function fmtChg(v){ if(v==null)return '-';return (v>=0?'+':'')+v.toFixed(2)+'%'; }
 // 영국(GBp/GBX) 종목: 주가는 펜스지만 marketCap은 이미 파운드(GBP) 기준으로 옴.
 // 따라서 시총 금액은 그대로 두고, 환율 조회용 통화코드만 GBP로 매핑.
+// quote 결과 q에서 시총을 종목에 반영. marketCap이 없거나 0이면 주식수×주가로 계산.
+function assignMcap(s, q){
+  if(!q || !s._data) return;
+  let mc = q.marketCap;
+  const cur = q.currency || s._data.currency;
+  if(!mc || mc<=0){
+    // fallback: 발행주식수 × 전일종가
+    const shares = q.sharesOutstanding || q.impliedSharesOutstanding;
+    const price = s._data.price != null ? s._data.price : q.regularMarketPrice;
+    if(shares>0 && price>0){
+      mc = shares * price;
+      // 주가가 펜스(GBp)면 시총도 펜스 단위가 됨 → 파운드로 환산
+      if(cur==='GBp' || cur==='GBX'){ mc = mc/100; }
+    }
+  }
+  if(mc>0){ s._data.mcap=mc; s._data.mcapCur=cur; }
+}
 function mcapCurrency(cur){
   if(!cur) return cur;
   const c=cur.trim();
@@ -845,7 +883,7 @@ async function fetchMarketCapsFor(list){
       if(!res.ok) continue;
       const json=await res.json();
       const bySym={};(json?.quoteResponse?.result||[]).forEach(q=>bySym[q.symbol]=q);
-      batch.forEach(s=>{const q=bySym[s.code];if(q&&q.marketCap){s._data.mcap=q.marketCap;s._data.mcapCur=q.currency||s._data.currency;}});
+      batch.forEach(s=>{const q=bySym[s.code];assignMcap(s,q);});
     }catch(e){}
     await new Promise(r=>setTimeout(r,300));
   }
