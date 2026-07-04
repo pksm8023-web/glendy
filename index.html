@@ -521,6 +521,9 @@ function fmtChg(v){ if(v==null)return '-';return (v>=0?'+':'')+v.toFixed(2)+'%';
 // quote 결과 q에서 시총을 종목에 반영. marketCap이 없거나 0이면 주식수×주가로 계산.
 function assignMcap(s, q){
   if(!q || !s._data) return;
+  // Yahoo 정식 종목명 저장 (팝업 표시용)
+  if(q.longName) s._data.longName=q.longName;
+  else if(q.shortName) s._data.longName=q.shortName;
   let mc = q.marketCap;
   const cur = q.currency || s._data.currency;
   if(!mc || mc<=0){
@@ -699,8 +702,17 @@ function loadOrder(){try{return JSON.parse(localStorage.getItem('watchlist_order
 function openModal(s){
   modalStock=s;
   document.getElementById('m-badge').textContent=s.sector;
-  document.getElementById('m-name').textContent=s.name;
-  document.getElementById('m-code').textContent=s.code+' · '+(s._data?.currency||s.currency);
+  // 팝업 제목: Yahoo 정식 종목명 우선, 없으면 시트 종목명
+  const yahooName = s._data?.longName;
+  document.getElementById('m-name').textContent = yahooName || s.name;
+  // 코드 줄: 시트 종목명이 야후명과 다르면 함께 표기
+  const codeLine = s.code+' · '+(s._data?.currency||s.currency);
+  const codeEl = document.getElementById('m-code');
+  if(yahooName && yahooName!==s.name){
+    codeEl.innerHTML = `${codeLine} <span style="color:var(--text-mute)">·</span> ${s.name}`;
+  }else{
+    codeEl.textContent = codeLine;
+  }
   const d=s._data;
   if(d){
     const cls=d.dailyChg>=0?'up':'down';
@@ -836,7 +848,7 @@ function saveCache(){
         code:s.code,
         d:s._data ? {
           p:s._data.price, pc:s._data.prevClose, dc:s._data.dailyChg,
-          cur:s._data.currency, mc:s._data.mcap, mcc:s._data.mcapCur,
+          cur:s._data.currency, mc:s._data.mcap, mcc:s._data.mcapCur, ln:s._data.longName,
           s:packSeries(s._data.series)
         } : null,
         e:s._err
@@ -865,7 +877,7 @@ function applyCache(cache){
     if(c.d){
       s._data={
         price:c.d.p, prevClose:c.d.pc, dailyChg:c.d.dc,
-        currency:c.d.cur, mcap:c.d.mc, mcapCur:c.d.mcc,
+        currency:c.d.cur, mcap:c.d.mc, mcapCur:c.d.mcc, longName:c.d.ln,
         series:unpackSeries(c.d.s)
       };
     }else{
