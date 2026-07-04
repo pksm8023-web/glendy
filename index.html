@@ -753,11 +753,109 @@ function populateSectors(){
     sel.appendChild(opt);
   });
 }
+// ============ CACHE (localStorage, 하루 단위) ============
+const CACHE_KEY = 'watchlist_data_cache_v1';
+function todayKey(){
+  const d=new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+function saveCache(){
+  try{
+    const payload={
+      date: todayKey(),
+      fx: FX,
+      stocks: STOCKS.map(s=>({
+        code:s.code,
+        data:s._data ? {
+          price:s._data.price, prevClose:s._data.prevClose, dailyChg:s._data.dailyChg,
+          currency:s._data.currency, series:s._data.series, mcap:s._data.mcap, mcapCur:s._data.mcapCur
+        } : null,
+        err:s._err
+      }))
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+  }catch(e){}
+}
+function loadCache(){
+  try{
+    const raw=localStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const payload=JSON.parse(raw);
+    if(payload.date!==todayKey()) return null;
+    return payload;
+  }catch(e){ return null; }
+}
+function applyCache(cache){
+  Object.assign(FX, cache.fx||{});
+  const byCode={};
+  cache.stocks.forEach(c=>byCode[c.code]=c);
+  STOCKS.forEach(s=>{
+    const c=byCode[s.code];
+    if(c){ s._data=c.data; s._err=c.err; }
+  });
+}
+// 신규 종목만 시총 받아오기
+async function fetchMarketCapsFor(list){
+  const BATCH=40;
+  for(let i=0;i<list.length;i+=BATCH){
+    const batch=list.slice(i,i+BATCH);
+    try{
+      const res=await fetch(yahooQuote(batch.map(s=>s.code)));
+      if(!res.ok) continue;
+      const json=await res.json();
+      const bySym={};(json?.quoteResponse?.result||[]).forEach(q=>bySym[q.symbol]=q);
+      batch.forEach(s=>{const q=bySym[s.code];if(q&&q.marketCap){s._data.mcap=q.marketCap;s._data.mcapCur=q.currency||s._data.currency;}});
+    }catch(e){}
+    await new Promise(r=>setTimeout(r,300));
+  }
+}
+async function fetchMissing(missing){
+  await fetchFX(missing.map(s=>s.currency));
+  updateFXLine();
+  const BATCH=6,DELAY=350;let done=0;
+  for(let i=0;i<missing.length;i+=BATCH){
+    const batch=missing.slice(i,i+BATCH);
+    await Promise.all(batch.map(async s=>{await fetchStock(s);done++;}));
+    setProg(`${done}/${missing.length}`);
+    render();
+    await new Promise(r=>setTimeout(r,DELAY));
+  }
+  await fetchMarketCapsFor(missing.filter(s=>s._data&&!s._err));
+  render();
+}
+
+// ============ INIT ============
 async function init(){
   try{
     setStatus('종목 목록 불러오는 중...');
     STOCKS=await loadSheet();
     populateSectors();
+
+    // 1) 캐시 확인 — 오늘 것이면 즉시 표시
+    const cache=loadCache();
+    if(cache){
+      applyCache(cache);
+      const missing=STOCKS.filter(s=>!s._data && !s._err);
+      updateFXLine();
+      render();
+      if(missing.length===0){
+        const errs=STOCKS.filter(s=>s._err).length;
+        setStatus(`완료 · ${STOCKS.length}개 종목 (캐시 · 오류 ${errs}건)`);
+        if(errs)document.getElementById('status-errs').textContent=`· 오류 ${errs}건`;
+        setProg('');
+        return;
+      }
+      setStatus(`캐시 로드 · 신규 ${missing.length}개 요청 중...`);
+      await fetchMissing(missing);
+      saveCache();
+      const errs=STOCKS.filter(s=>s._err).length;
+      setStatus(`완료 · ${STOCKS.length}개 종목 (오류 ${errs}건)`);
+      if(errs)document.getElementById('status-errs').textContent=`· 오류 ${errs}건`;
+      setProg('');
+      return;
+    }
+
+    // 2) 캐시 없음 — 전체 로딩
     setStatus(`${STOCKS.length}개 종목 · 환율 로딩 중...`);
     render();
     await fetchFX(STOCKS.map(s=>s.currency));
@@ -775,6 +873,7 @@ async function init(){
     await fetchMarketCaps();
     updateFXLine();
     render();
+    saveCache();
     setStatus(`완료 · ${STOCKS.length}개 종목 (오류 ${errs}건)`);
     setProg('');
   }catch(e){
