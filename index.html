@@ -336,6 +336,7 @@ body{
   <div class="tab-bar" id="tab-bar">
     <button class="cat-tab on" data-cat="소비재">소비재</button>
     <button class="cat-tab" data-cat="비소비재">비소비재</button>
+    <button class="cat-tab" data-cat="지표">지표</button>
   </div>
 
   <div class="toolbar">
@@ -427,6 +428,7 @@ body{
 // ============ CONFIG ============
 const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgJwZtgoU_fioDQfO0pWo3tTME-MLq0wj-T-4sRw9xXLFs2JNuPjLdFzS0XMiRpmERcbhEiGaFAIO1/pub?output=csv";
 const HISTORY_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgJwZtgoU_fioDQfO0pWo3tTME-MLq0wj-T-4sRw9xXLFs2JNuPjLdFzS0XMiRpmERcbhEiGaFAIO1/pub?gid=1665314279&single=true&output=csv";
+const INDICATOR_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgJwZtgoU_fioDQfO0pWo3tTME-MLq0wj-T-4sRw9xXLFs2JNuPjLdFzS0XMiRpmERcbhEiGaFAIO1/pub?gid=1562755009&single=true&output=csv";
 // 배포: 자체 프록시 함수 사용 (CORS 해결 + CDN 캐싱). 로컬 file:// 열기용 fallback 포함.
 const USE_LOCAL_API = location.protocol !== 'file:';
 const FALLBACK_PROXY = "https://corsproxy.io/?url=";
@@ -518,6 +520,26 @@ async function loadSheet(){
     brands:(r[6]||'').trim(),
     _data:null,_err:null
   })).filter(s=>s.code);
+}
+// 지표는 별도 시트 (카테고리|섹터|종목명|Yahoo코드|통화(단위)|투자포인트), 브랜드 없음
+async function loadIndicators(){
+  try{
+    const res = await fetch(INDICATOR_CSV);
+    const text = await res.text();
+    const rows = parseCSV(text).filter(r=>r.length>=4 && r[2] && r[2].trim());
+    rows.shift();
+    return rows.map(r=>({
+      category:'지표',
+      sector:(r[1]||'기타').trim(),
+      name:(r[2]||'').trim(),
+      code:(r[3]||'').trim(),
+      currency:(r[4]||'').trim(),  // 단위 (pt, $/oz 등)
+      invest:(r[5]||'').trim(),
+      brands:'',
+      isIndicator:true,
+      _data:null,_err:null
+    })).filter(s=>s.code);
+  }catch(e){ return []; }
 }
 
 // ============ YAHOO CHART FETCH ============
@@ -735,6 +757,12 @@ function cardHTML(s){
   const pChg=periodChange(d.series,mainPeriod);
   const pCls=pChg>=0?'up':'down';
   const pLabel={'1M':'1개월','6M':'6개월','YTD':'YTD','1Y':'1년','5Y':'5년'}[mainPeriod];
+  // 지표: 원화·시총 없이 값+단위 표시
+  const isInd=s.isIndicator;
+  const priceStr=isInd ? fmtIndicatorValue(d.price) : fmtPrice(d.price,d.currency);
+  const footLeft=isInd
+    ? `<span class="card-mcap-foot">${s.currency?s.currency:''}</span>`
+    : `<span class="card-mcap-foot">${fmtMcapKRW(s)?('시총 '+fmtMcapKRW(s)):'<span style=\"color:var(--text-mute)\">시총 -</span>'}</span>`;
   return `<div class="card" data-key="${key}" data-code="${s.code}">
     <div class="card-top">
       <div class="card-id">
@@ -742,16 +770,23 @@ function cardHTML(s){
         <div class="card-code">${s.code}</div>
       </div>
       <div class="card-price-wrap">
-        <div class="card-price">${fmtPrice(d.price,d.currency)}</div>
+        <div class="card-price">${priceStr}</div>
         <div class="card-chg-daily ${dCls}">${fmtChg(d.dailyChg)}</div>
       </div>
     </div>
     <div class="card-chart"><canvas id="mini-${cssId(s.code)}"></canvas></div>
     <div class="card-chart-foot">
-      <span class="card-mcap-foot">${fmtMcapKRW(s)?('시총 '+fmtMcapKRW(s)):'<span style=\"color:var(--text-mute)\">시총 -</span>'}</span>
+      ${footLeft}
       <span class="chg-period ${pCls}"><span class="chg-period-inline-label">${pLabel}</span> ${fmtChg(pChg)}</span>
     </div>
   </div>`;
+}
+// 지표 값 포맷 (원화 환산 없이, 천단위 콤마)
+function fmtIndicatorValue(v){
+  if(v==null||isNaN(v))return '-';
+  if(v>=1000) return v.toLocaleString(undefined,{maximumFractionDigits:0});
+  if(v>=1)    return v.toLocaleString(undefined,{maximumFractionDigits:2});
+  return v.toLocaleString(undefined,{maximumFractionDigits:4});
 }
 function cssId(code){return code.replace(/[^a-zA-Z0-9]/g,'_');}
 
@@ -828,7 +863,7 @@ function openModal(s){
   const d=s._data;
   if(d){
     const cls=d.dailyChg>=0?'up':'down';
-    document.getElementById('m-price').textContent=fmtPrice(d.price,d.currency);
+    document.getElementById('m-price').textContent=s.isIndicator?fmtIndicatorValue(d.price):fmtPrice(d.price,d.currency);
     const chg=document.getElementById('m-chg');chg.textContent=fmtChg(d.dailyChg);chg.className='m-chg '+cls;
     document.getElementById('m-chg-tag').textContent='(전일)';
   }else{
@@ -836,18 +871,22 @@ function openModal(s){
     document.getElementById('m-chg').textContent='';
     document.getElementById('m-chg-tag').textContent='';
   }
-  const mcapK=fmtMcapKRW(s), mcapL=fmtMcapLocal(s);
   const mcapEl=document.getElementById('m-mcap-row');
-  if(mcapK||mcapL){
-    mcapEl.innerHTML=`<span class="mc-label">시가총액</span><span class="mc-val">${mcapK||'-'}</span><span class="mc-sep">|</span><span class="mc-val">${mcapL||'-'}</span>`;
+  if(s.isIndicator){
+    mcapEl.innerHTML=`<span class="mc-label">단위</span><span class="mc-val">${s.currency||'-'}</span>`;
   }else{
-    mcapEl.innerHTML=`<span class="mc-label">시가총액</span><span class="mc-val">-</span>`;
+    const mcapK=fmtMcapKRW(s), mcapL=fmtMcapLocal(s);
+    if(mcapK||mcapL){
+      mcapEl.innerHTML=`<span class="mc-label">시가총액</span><span class="mc-val">${mcapK||'-'}</span><span class="mc-sep">|</span><span class="mc-val">${mcapL||'-'}</span>`;
+    }else{
+      mcapEl.innerHTML=`<span class="mc-label">시가총액</span><span class="mc-val">-</span>`;
+    }
   }
   const inv=document.getElementById('m-invest');
-  if(s.invest)inv.innerHTML=`<div class="sec-title">투자 포인트 · 체크리스트</div><div class="invest-box">${s.invest.split('/').map(x=>'• '+x.trim()).join('\n')}</div>`;
+  if(s.invest)inv.innerHTML=`<div class="sec-title">${s.isIndicator?'설명':'투자 포인트 · 체크리스트'}</div><div class="invest-box">${s.invest.split('/').map(x=>'• '+x.trim()).join('\n')}</div>`;
   else inv.innerHTML='';
   const bw=document.getElementById('m-brands');
-  if(s.brands){const tags=s.brands.split(',').map(b=>b.trim()).filter(Boolean);
+  if(s.brands && !s.isIndicator){const tags=s.brands.split(',').map(b=>b.trim()).filter(Boolean);
     bw.innerHTML=`<div class="sec-title">보유 브랜드</div><div class="brands">${tags.map(t=>`<span class="btag">${t}</span>`).join('')}</div>`;}
   else bw.innerHTML='';
   document.querySelectorAll('.period-btn').forEach(b=>b.classList.toggle('on',b.dataset.p==='1Y'));
@@ -971,6 +1010,12 @@ document.getElementById('tab-bar').addEventListener('click',async e=>{
   render();
   // 이 카테고리를 아직 로딩 안 했으면 지금 로딩 (지연 로딩)
   if(!loadedCategories[cat]){
+    // 지표 탭은 별도 시트를 먼저 STOCKS에 병합
+    if(cat==='지표' && !STOCKS.some(s=>s.category==='지표')){
+      const inds=await loadIndicators();
+      STOCKS=STOCKS.concat(inds);
+      populateSectors();
+    }
     await loadCategory(cat);
   }
 });
@@ -1113,9 +1158,12 @@ async function loadCategory(cat){
   if(loadedCategories[cat]) return;
   const targets=STOCKS.filter(s=>s.category===cat && !s._data && !s._err);
   if(targets.length===0){ loadedCategories[cat]=true; return; }
-  setStatus(`${cat} · 환율 로딩 중...`);
-  await fetchFX(targets.map(s=>s.currency));
-  updateFXLine();
+  const isIndCat = (cat==='지표');
+  if(!isIndCat){
+    setStatus(`${cat} · 환율 로딩 중...`);
+    await fetchFX(targets.map(s=>s.currency));
+    updateFXLine();
+  }
   const BATCH=6,DELAY=350;let done=0,errs=0;
   for(let i=0;i<targets.length;i+=BATCH){
     const batch=targets.slice(i,i+BATCH);
@@ -1124,10 +1172,12 @@ async function loadCategory(cat){
     render();
     await new Promise(r=>setTimeout(r,DELAY));
   }
-  setStatus(`${cat} 가격 완료 · 시가총액 요청 중...`);
-  await fetchMarketCapsFor(targets.filter(s=>s._data&&!s._err));
-  updateFXLine();
-  render();
+  if(!isIndCat){
+    setStatus(`${cat} 가격 완료 · 시가총액 요청 중...`);
+    await fetchMarketCapsFor(targets.filter(s=>s._data&&!s._err));
+    updateFXLine();
+    render();
+  }
   loadedCategories[cat]=true;
   saveCache();
   const totalErrs=STOCKS.filter(s=>s._err).length;
