@@ -109,6 +109,11 @@ body{
 
 /* Toolbar */
 .toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:1.6rem}
+/* 카테고리 탭 */
+.tab-bar{display:flex;gap:4px;margin-bottom:1.3rem;border-bottom:1px solid var(--border)}
+.cat-tab{padding:10px 22px;font-size:14px;font-weight:600;border:none;background:transparent;color:var(--text-mute);cursor:pointer;position:relative;transition:color .15s;border-bottom:2.5px solid transparent;margin-bottom:-1px}
+.cat-tab:hover{color:var(--text-sub)}
+.cat-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
 .toolbar-left{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .toolbar-right{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .sector-select{padding:8px 32px 8px 13px;font-size:13px;font-weight:500;border:1px solid var(--border-strong);border-radius:10px;background:var(--bg-card);color:var(--text);cursor:pointer;outline:none;transition:border-color .15s;
@@ -328,6 +333,11 @@ body{
     </div>
   </div>
 
+  <div class="tab-bar" id="tab-bar">
+    <button class="cat-tab on" data-cat="소비재">소비재</button>
+    <button class="cat-tab" data-cat="비소비재">비소비재</button>
+  </div>
+
   <div class="toolbar">
     <div class="toolbar-left">
       <select class="sector-select" id="sector-select">
@@ -438,6 +448,9 @@ let currentSort = 'default';
 let searchQuery = '';
 let activeSector = 'ALL';
 let mainPeriod = '1Y';
+let activeCategory = '소비재';
+let loadedCategories = {};  // 카테고리별 데이터 로딩 완료 여부
+let catSectorState = {};    // 카테고리별 섹터 필터 기억 (독립 상태)
 let modalChart = null, modalStock = null;
 
 // ============ THEME ============
@@ -493,15 +506,16 @@ function parseCSV(text){
 async function loadSheet(){
   const res = await fetch(SHEET_CSV);
   const text = await res.text();
-  const rows = parseCSV(text).filter(r=>r.length>=3 && r[1] && r[1].trim());
+  const rows = parseCSV(text).filter(r=>r.length>=4 && r[2] && r[2].trim());
   rows.shift();
   return rows.map(r=>({
-    sector:(r[0]||'기타').trim(),
-    name:(r[1]||'').trim(),
-    code:(r[2]||'').trim(),
-    currency:(r[3]||'').trim(),
-    invest:(r[4]||'').trim(),
-    brands:(r[5]||'').trim(),
+    category:(r[0]||'소비재').trim(),
+    sector:(r[1]||'기타').trim(),
+    name:(r[2]||'').trim(),
+    code:(r[3]||'').trim(),
+    currency:(r[4]||'').trim(),
+    invest:(r[5]||'').trim(),
+    brands:(r[6]||'').trim(),
     _data:null,_err:null
   })).filter(s=>s.code);
 }
@@ -680,7 +694,7 @@ function applyUserOrder(list){
 
 function render(){
   const content=document.getElementById('content');
-  let list=STOCKS;
+  let list=STOCKS.filter(s=>s.category===activeCategory);
   if(activeSector!=='ALL') list=list.filter(s=>s.sector===activeSector);
   if(searchQuery){
     const q=searchQuery.toLowerCase();
@@ -939,7 +953,26 @@ document.querySelectorAll('.sort-btn').forEach(btn=>{
   });
 });
 document.getElementById('sector-select').addEventListener('change',e=>{
-  activeSector=e.target.value;render();
+  activeSector=e.target.value;
+  catSectorState[activeCategory]=activeSector; // 카테고리별 섹터 기억
+  render();
+});
+// 카테고리 탭 전환
+document.getElementById('tab-bar').addEventListener('click',async e=>{
+  const tab=e.target.closest('.cat-tab');if(!tab)return;
+  const cat=tab.dataset.cat;
+  if(cat===activeCategory)return;
+  document.querySelectorAll('.cat-tab').forEach(t=>t.classList.remove('on'));
+  tab.classList.add('on');
+  activeCategory=cat;
+  // 탭 독립 상태: 검색어 초기화, 섹터는 카테고리별 기억값 복원
+  searchQuery=''; document.getElementById('search').value='';
+  populateSectors();
+  render();
+  // 이 카테고리를 아직 로딩 안 했으면 지금 로딩 (지연 로딩)
+  if(!loadedCategories[cat]){
+    await loadCategory(cat);
+  }
 });
 document.getElementById('period-main').addEventListener('click',e=>{
   const btn=e.target.closest('.pm-btn');if(!btn)return;
@@ -966,13 +999,19 @@ document.getElementById('status-errs').addEventListener('click',()=>{
 
 // ============ INIT ============
 function populateSectors(){
-  const sectors=[...new Set(STOCKS.map(s=>s.sector))];
   const sel=document.getElementById('sector-select');
+  // 현재 카테고리의 섹터만
+  const sectors=[...new Set(STOCKS.filter(s=>s.category===activeCategory).map(s=>s.sector))];
+  sel.innerHTML='<option value="ALL">전체 섹터</option>';
   sectors.forEach(sec=>{
     const opt=document.createElement('option');
     opt.value=sec;opt.textContent=sec;
     sel.appendChild(opt);
   });
+  // 이 카테고리에서 기억해둔 섹터 복원 (없으면 전체)
+  const saved=catSectorState[activeCategory]||'ALL';
+  if([...sel.options].some(o=>o.value===saved)){ sel.value=saved; activeSector=saved; }
+  else { sel.value='ALL'; activeSector='ALL'; }
 }
 // ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
 const CACHE_KEY = 'watchlist_data_cache_v2';
@@ -1069,57 +1108,65 @@ async function fetchMissing(missing){
 }
 
 // ============ INIT ============
+// 특정 카테고리의 종목만 로딩 (지연 로딩)
+async function loadCategory(cat){
+  if(loadedCategories[cat]) return;
+  const targets=STOCKS.filter(s=>s.category===cat && !s._data && !s._err);
+  if(targets.length===0){ loadedCategories[cat]=true; return; }
+  setStatus(`${cat} · 환율 로딩 중...`);
+  await fetchFX(targets.map(s=>s.currency));
+  updateFXLine();
+  const BATCH=6,DELAY=350;let done=0,errs=0;
+  for(let i=0;i<targets.length;i+=BATCH){
+    const batch=targets.slice(i,i+BATCH);
+    await Promise.all(batch.map(async s=>{await fetchStock(s);done++;if(s._err)errs++;}));
+    setProg(`${done}/${targets.length}`);
+    render();
+    await new Promise(r=>setTimeout(r,DELAY));
+  }
+  setStatus(`${cat} 가격 완료 · 시가총액 요청 중...`);
+  await fetchMarketCapsFor(targets.filter(s=>s._data&&!s._err));
+  updateFXLine();
+  render();
+  loadedCategories[cat]=true;
+  saveCache();
+  const totalErrs=STOCKS.filter(s=>s._err).length;
+  const catCount=STOCKS.filter(s=>s.category===cat).length;
+  setStatus(`완료 · ${cat} ${catCount}개 (오류 ${errs}건)`);
+  if(totalErrs)document.getElementById('status-errs').textContent=`· 오류 ${totalErrs}건`;
+  setProg('');
+}
+
 async function init(){
   try{
     setStatus('종목 목록 불러오는 중...');
     STOCKS=await loadSheet();
     populateSectors();
 
-    // 1) 캐시 확인 — 오늘 것이면 즉시 표시
+    // 캐시 적용 (모든 카테고리의 이미 받은 데이터 복원)
     const cache=loadCache();
     if(cache){
       applyCache(cache);
-      const missing=STOCKS.filter(s=>!s._data && !s._err);
       updateFXLine();
       render();
-      if(missing.length===0){
-        const errs=STOCKS.filter(s=>s._err).length;
-        setStatus(`완료 · ${STOCKS.length}개 종목 (캐시 · 오류 ${errs}건)`);
-        if(errs)document.getElementById('status-errs').textContent=`· 오류 ${errs}건`;
-        setProg('');
-        return;
-      }
-      setStatus(`캐시 로드 · 신규 ${missing.length}개 요청 중...`);
-      await fetchMissing(missing);
-      saveCache();
-      const errs=STOCKS.filter(s=>s._err).length;
-      setStatus(`완료 · ${STOCKS.length}개 종목 (오류 ${errs}건)`);
-      if(errs)document.getElementById('status-errs').textContent=`· 오류 ${errs}건`;
-      setProg('');
-      return;
+      // 캐시에 이미 있는 카테고리는 로딩완료로 표시
+      ['소비재','비소비재'].forEach(cat=>{
+        const targets=STOCKS.filter(s=>s.category===cat);
+        const done=targets.filter(s=>s._data||s._err).length;
+        if(targets.length>0 && done===targets.length) loadedCategories[cat]=true;
+      });
     }
 
-    // 2) 캐시 없음 — 전체 로딩
-    setStatus(`${STOCKS.length}개 종목 · 환율 로딩 중...`);
-    render();
-    await fetchFX(STOCKS.map(s=>s.currency));
-    updateFXLine();
-    const BATCH=6,DELAY=350;let done=0,errs=0;
-    for(let i=0;i<STOCKS.length;i+=BATCH){
-      const batch=STOCKS.slice(i,i+BATCH);
-      await Promise.all(batch.map(async s=>{await fetchStock(s);done++;if(s._err)errs++;}));
-      setProg(`${done}/${STOCKS.length}`);
+    // 활성 카테고리(소비재)를 우선 로딩. 나머지는 탭 누를 때.
+    if(!loadedCategories[activeCategory]){
+      await loadCategory(activeCategory);
+    }else{
+      const errs=STOCKS.filter(s=>s._err).length;
+      const catCount=STOCKS.filter(s=>s.category===activeCategory).length;
+      setStatus(`완료 · ${activeCategory} ${catCount}개 (캐시 · 오류 ${errs}건)`);
       if(errs)document.getElementById('status-errs').textContent=`· 오류 ${errs}건`;
-      render();
-      await new Promise(r=>setTimeout(r,DELAY));
+      setProg('');
     }
-    setStatus(`가격 로드 완료 · 시가총액 요청 중...`);
-    await fetchMarketCaps();
-    updateFXLine();
-    render();
-    saveCache();
-    setStatus(`완료 · ${STOCKS.length}개 종목 (오류 ${errs}건)`);
-    setProg('');
   }catch(e){
     setStatus('오류: '+e.message);
     document.getElementById('content').innerHTML=`<div class="empty">데이터를 불러오지 못했습니다.<br><span style="font-size:12px">${e.message}</span><br><br><span style="font-size:12px;color:var(--text-sub)">로컬 서버(http://)로 열었는지 확인해주세요</span></div>`;
