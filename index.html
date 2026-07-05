@@ -63,6 +63,30 @@ body{
 }
 .wrap{max-width:1400px;margin:0 auto;padding:1.5rem 1.5rem 4rem}
 
+/* ===== 로그인 화면 ===== */
+.login-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:1.5rem;
+  background:var(--bg);
+  background-image:radial-gradient(ellipse 70% 55% at 50% 0%, var(--accent-soft), transparent);}
+.login-screen.hidden{display:none}
+.login-card{width:min(380px,100%);background:var(--bg-card);border:1px solid var(--border);border-radius:18px;
+  box-shadow:0 12px 40px rgba(16,24,40,0.12);padding:2.2rem 2rem;text-align:center}
+.login-logo{height:64px;width:auto;margin-bottom:0.9rem}
+.login-title{font-size:19px;font-weight:700;color:var(--text);letter-spacing:-0.01em;line-height:1.3}
+.login-sub{font-size:12.5px;color:var(--text-sub);margin-top:6px;margin-bottom:1.6rem}
+.login-field{text-align:left;margin-bottom:0.9rem}
+.login-field label{display:block;font-size:12px;font-weight:600;color:var(--text-sub);margin-bottom:5px}
+.login-field input{width:100%;padding:10px 13px;font-size:14px;border:1px solid var(--border-strong);border-radius:10px;
+  background:var(--bg);color:var(--text);outline:none;transition:border-color .15s}
+.login-field input:focus{border-color:var(--accent)}
+.login-field input::placeholder{color:var(--text-mute)}
+.login-remember{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-sub);cursor:pointer;margin-bottom:1rem;text-align:left}
+.login-remember input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.login-error{font-size:12.5px;color:var(--down);min-height:18px;margin-bottom:0.6rem;text-align:left}
+.login-btn{width:100%;padding:11px;font-size:14px;font-weight:600;border:none;border-radius:10px;
+  background:var(--accent);color:#fff;cursor:pointer;transition:opacity .15s}
+.login-btn:hover{opacity:0.9}
+.login-btn:active{transform:translateY(1px)}
+
 /* Header */
 .top{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.2rem;padding-bottom:1.1rem;border-bottom:1px solid var(--border)}
 .brand{display:flex;align-items:center;gap:13px}
@@ -76,6 +100,9 @@ body{
 .theme-toggle{width:38px;height:38px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;color:var(--text-sub)}
 .theme-toggle:hover{border-color:var(--accent);color:var(--accent)}
 .theme-toggle svg{width:18px;height:18px}
+.sheet-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-sub);cursor:pointer;transition:all .15s;text-decoration:none;font-size:12.5px;font-weight:600;white-space:nowrap}
+.sheet-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sheet-btn svg{width:16px;height:16px;flex-shrink:0}
 
 /* Toolbar */
 .toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:1.6rem}
@@ -207,6 +234,8 @@ body{
   .m-chart-wrap{height:200px}
 }
 @media (max-width:520px){
+  .sheet-btn span{display:none}
+  .sheet-btn{padding:0 10px}
   .wrap{padding:1rem 1rem 4rem}
   .brand h1{font-size:18px}
   .brand-logo{height:42px}
@@ -229,6 +258,29 @@ body{
 </style>
 </head>
 <body>
+<!-- 로그인 화면 -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <img class="login-logo" id="login-logo" alt="로고">
+    <h1 class="login-title">Global Trend Study Watchlist</h1>
+    <p class="login-sub">관심종목 현황판 · 로그인이 필요합니다</p>
+    <div class="login-field">
+      <label for="login-id">아이디</label>
+      <input type="text" id="login-id" autocomplete="username" placeholder="아이디 입력" spellcheck="false">
+    </div>
+    <div class="login-field">
+      <label for="login-pw">비밀번호</label>
+      <input type="password" id="login-pw" autocomplete="current-password" placeholder="비밀번호 입력">
+    </div>
+    <label class="login-remember">
+      <input type="checkbox" id="login-remember">
+      <span>로그인 상태 기억하기</span>
+    </label>
+    <div class="login-error" id="login-error"></div>
+    <button class="login-btn" id="login-btn">로그인</button>
+  </div>
+</div>
+
 <div class="wrap">
   <div class="top">
     <div class="brand">
@@ -242,6 +294,10 @@ body{
         <div class="basis" id="basis-date">전일 종가 기준</div>
         <div id="fx-line">환율 로딩 중...</div>
       </div>
+      <a class="sheet-btn" id="sheet-btn" href="https://docs.google.com/spreadsheets/d/17eIKSRWUha5jiuB1e7FEBOHE0Jzt30u5klWYiBzyc04/edit" target="_blank" rel="noopener" title="관심종목 시트 열기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M8 3h8v6H8zM3 9h18M3 15h18M12 9v12"/></svg>
+        <span>종목 관리</span>
+      </a>
       <button class="theme-toggle" id="theme-toggle" title="다크 모드 전환" aria-label="테마 전환"></button>
     </div>
   </div>
@@ -977,7 +1033,50 @@ function updateFXLine(){
   ['USD','EUR','JPY'].forEach(c=>{if(FX[c])parts.push(`${c} ${FX[c].toLocaleString(undefined,{maximumFractionDigits:c==='JPY'?2:1})}`);});
   document.getElementById('fx-line').textContent=parts.length?('₩ '+parts.join(' · ')):'환율 정보 없음';
 }
-init();
+// ============ 로그인 (간단한 접근 제한) ============
+const AUTH = { id:'simstudy', pw:'1234' };
+const AUTH_KEY = 'watchlist_auth_v1';
+let appStarted = false;
+
+function startApp(){
+  if(appStarted) return;
+  appStarted = true;
+  document.getElementById('login-screen').classList.add('hidden');
+  init();
+}
+function checkSavedLogin(){
+  try{
+    if(localStorage.getItem(AUTH_KEY)==='ok'){ startApp(); return true; }
+  }catch(e){}
+  return false;
+}
+function attemptLogin(){
+  const id=document.getElementById('login-id').value.trim();
+  const pw=document.getElementById('login-pw').value;
+  const err=document.getElementById('login-error');
+  if(id===AUTH.id && pw===AUTH.pw){
+    err.textContent='';
+    if(document.getElementById('login-remember').checked){
+      try{ localStorage.setItem(AUTH_KEY,'ok'); }catch(e){}
+    }
+    startApp();
+  }else{
+    err.textContent='아이디 또는 비밀번호가 올바르지 않습니다.';
+    document.getElementById('login-pw').value='';
+    document.getElementById('login-pw').focus();
+  }
+}
+// 로그인 화면 로고
+try{ document.getElementById('login-logo').src=document.getElementById('brand-logo').src; }catch(e){}
+document.getElementById('login-btn').addEventListener('click', attemptLogin);
+['login-id','login-pw'].forEach(idr=>{
+  document.getElementById(idr).addEventListener('keydown', e=>{ if(e.key==='Enter') attemptLogin(); });
+});
+
+// 저장된 로그인이 있으면 바로 시작, 없으면 로그인 화면 노출
+if(!checkSavedLogin()){
+  document.getElementById('login-id').focus();
+}
 </script>
 </body>
 </html>
