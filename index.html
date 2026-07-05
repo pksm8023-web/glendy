@@ -358,8 +358,8 @@ body{
       </div>
       <div class="controls">
         <span class="ctrl-label">정렬</span>
-        <button class="sort-btn on" data-sort="default">등록순</button>
-        <button class="sort-btn" data-sort="mcap">시총순</button>
+        <button class="sort-btn" data-sort="default">등록순</button>
+        <button class="sort-btn on" data-sort="mcap">시총순</button>
         <button class="sort-btn" data-sort="change">등락률</button>
         <button class="sort-btn" data-sort="name">종목명</button>
       </div>
@@ -444,7 +444,7 @@ const FX = {};
 // ============ STATE ============
 let STOCKS = [];
 let userOrder = loadOrder();
-let currentSort = 'default';
+let currentSort = 'mcap';
 let searchQuery = '';
 let activeSector = 'ALL';
 let mainPeriod = '1Y';
