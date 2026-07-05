@@ -334,9 +334,9 @@ body{
   </div>
 
   <div class="tab-bar" id="tab-bar">
-    <button class="cat-tab on" data-cat="소비재">소비재</button>
+    <button class="cat-tab on" data-cat="지표">지표</button>
+    <button class="cat-tab" data-cat="소비재">소비재</button>
     <button class="cat-tab" data-cat="비소비재">비소비재</button>
-    <button class="cat-tab" data-cat="지표">지표</button>
   </div>
 
   <div class="toolbar">
@@ -450,7 +450,7 @@ let currentSort = 'mcap';
 let searchQuery = '';
 let activeSector = 'ALL';
 let mainPeriod = '1Y';
-let activeCategory = '소비재';
+let activeCategory = '지표';
 let loadedCategories = {};  // 카테고리별 데이터 로딩 완료 여부
 let catSectorState = {};    // 카테고리별 섹터 필터 기억 (독립 상태)
 let modalChart = null, modalStock = null;
@@ -1008,15 +1008,10 @@ document.getElementById('tab-bar').addEventListener('click',async e=>{
   searchQuery=''; document.getElementById('search').value='';
   populateSectors();
   render();
-  // 이 카테고리를 아직 로딩 안 했으면 지금 로딩 (지연 로딩)
+  // 아직 로딩 안 됐으면 로딩 (프리로딩 중이면 완료까지 기다림)
   if(!loadedCategories[cat]){
-    // 지표 탭은 별도 시트를 먼저 STOCKS에 병합
-    if(cat==='지표' && !STOCKS.some(s=>s.category==='지표')){
-      const inds=await loadIndicators();
-      STOCKS=STOCKS.concat(inds);
-      populateSectors();
-    }
-    await loadCategory(cat);
+    await ensureCategoryLoaded(cat);
+    if(activeCategory===cat) render();
   }
 });
 document.getElementById('period-main').addEventListener('click',e=>{
@@ -1154,8 +1149,20 @@ async function fetchMissing(missing){
 
 // ============ INIT ============
 // 특정 카테고리의 종목만 로딩 (지연 로딩)
+let loadingCategories={};
 async function loadCategory(cat){
   if(loadedCategories[cat]) return;
+  // 이미 로딩 중이면 완료될 때까지 대기 (동시 호출 방지)
+  if(loadingCategories[cat]){ await loadingCategories[cat]; return; }
+  let resolveLock;
+  loadingCategories[cat]=new Promise(r=>resolveLock=r);
+  try{
+    await _loadCategoryInner(cat);
+  }finally{
+    resolveLock(); delete loadingCategories[cat];
+  }
+}
+async function _loadCategoryInner(cat){
   const targets=STOCKS.filter(s=>s.category===cat && !s._data && !s._err);
   if(targets.length===0){ loadedCategories[cat]=true; return; }
   const isIndCat = (cat==='지표');
@@ -1165,25 +1172,59 @@ async function loadCategory(cat){
     updateFXLine();
   }
   const BATCH=6,DELAY=350;let done=0,errs=0;
+  const isActive=()=>activeCategory===cat;
   for(let i=0;i<targets.length;i+=BATCH){
     const batch=targets.slice(i,i+BATCH);
     await Promise.all(batch.map(async s=>{await fetchStock(s);done++;if(s._err)errs++;}));
-    setProg(`${done}/${targets.length}`);
-    render();
+    if(isActive()){ setProg(`${done}/${targets.length}`); render(); }
     await new Promise(r=>setTimeout(r,DELAY));
   }
   if(!isIndCat){
-    setStatus(`${cat} 가격 완료 · 시가총액 요청 중...`);
+    if(isActive()) setStatus(`${cat} 가격 완료 · 시가총액 요청 중...`);
     await fetchMarketCapsFor(targets.filter(s=>s._data&&!s._err));
-    updateFXLine();
-    render();
+    if(isActive()){ updateFXLine(); render(); }
   }
   loadedCategories[cat]=true;
   saveCache();
-  const totalErrs=STOCKS.filter(s=>s._err).length;
-  const catCount=STOCKS.filter(s=>s.category===cat).length;
-  setStatus(`완료 · ${cat} ${catCount}개 (오류 ${errs}건)`);
-  if(totalErrs)document.getElementById('status-errs').textContent=`· 오류 ${totalErrs}건`;
+  if(isActive()){
+    const totalErrs=STOCKS.filter(s=>s._err).length;
+    const catCount=STOCKS.filter(s=>s.category===cat).length;
+    setStatus(`완료 · ${cat} ${catCount}개 (오류 ${errs}건)`);
+    if(totalErrs)document.getElementById('status-errs').textContent=`· 오류 ${totalErrs}건`;
+    setProg('');
+  }
+}
+
+// 카테고리 로딩 보장 (지표면 별도 시트 병합 후 로딩)
+async function ensureCategoryLoaded(cat){
+  if(loadedCategories[cat]) return;
+  if(cat==='지표' && !STOCKS.some(s=>s.category==='지표')){
+    const inds=await loadIndicators();
+    STOCKS=STOCKS.concat(inds);
+    if(activeCategory==='지표') populateSectors();
+  }
+  await loadCategory(cat);
+}
+
+// 백그라운드 순차 프리로딩 (현재 탭에 방해 안 되게 조용히)
+let preloadRunning=false;
+async function backgroundPreload(){
+  if(preloadRunning) return;
+  preloadRunning=true;
+  const order=['지표','소비재','비소비재'];
+  for(const cat of order){
+    if(!loadedCategories[cat]){
+      try{ await ensureCategoryLoaded(cat); }catch(e){}
+      // 현재 보고 있는 탭이면 화면 갱신
+      if(activeCategory===cat) render();
+    }
+  }
+  preloadRunning=false;
+  // 프리로딩 끝나면 상태바를 현재 탭 기준으로 정리
+  const errs=STOCKS.filter(s=>s._err).length;
+  const catCount=STOCKS.filter(s=>s.category===activeCategory).length;
+  setStatus(`완료 · 전체 준비됨 (${activeCategory} ${catCount}개)`);
+  if(errs)document.getElementById('status-errs').textContent=`· 오류 ${errs}건`;
   setProg('');
 }
 
@@ -1193,13 +1234,12 @@ async function init(){
     STOCKS=await loadSheet();
     populateSectors();
 
-    // 캐시 적용 (모든 카테고리의 이미 받은 데이터 복원)
+    // 캐시 적용 (이미 받은 데이터 복원)
     const cache=loadCache();
     if(cache){
       applyCache(cache);
       updateFXLine();
       render();
-      // 캐시에 이미 있는 카테고리는 로딩완료로 표시
       ['소비재','비소비재'].forEach(cat=>{
         const targets=STOCKS.filter(s=>s.category===cat);
         const done=targets.filter(s=>s._data||s._err).length;
@@ -1207,16 +1247,12 @@ async function init(){
       });
     }
 
-    // 활성 카테고리(소비재)를 우선 로딩. 나머지는 탭 누를 때.
-    if(!loadedCategories[activeCategory]){
-      await loadCategory(activeCategory);
-    }else{
-      const errs=STOCKS.filter(s=>s._err).length;
-      const catCount=STOCKS.filter(s=>s.category===activeCategory).length;
-      setStatus(`완료 · ${activeCategory} ${catCount}개 (캐시 · 오류 ${errs}건)`);
-      if(errs)document.getElementById('status-errs').textContent=`· 오류 ${errs}건`;
-      setProg('');
-    }
+    // 1) 활성 탭(지표)을 우선 로딩해서 바로 보여줌
+    await ensureCategoryLoaded(activeCategory);
+    render();
+
+    // 2) 나머지 탭을 백그라운드에서 순차 프리로딩 (사용자는 지표를 보는 중)
+    backgroundPreload();
   }catch(e){
     setStatus('오류: '+e.message);
     document.getElementById('content').innerHTML=`<div class="empty">데이터를 불러오지 못했습니다.<br><span style="font-size:12px">${e.message}</span><br><br><span style="font-size:12px;color:var(--text-sub)">로컬 서버(http://)로 열었는지 확인해주세요</span></div>`;
