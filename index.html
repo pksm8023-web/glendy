@@ -103,6 +103,9 @@ body{
 .sheet-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border-radius:10px;border:1px solid #16A34A;background:var(--bg-card);color:#16A34A;cursor:pointer;transition:all .15s;text-decoration:none;font-size:12.5px;font-weight:600;white-space:nowrap}
 .sheet-btn:hover{background:#16A34A;color:#fff}
 .sheet-btn svg{width:16px;height:16px;flex-shrink:0}
+.history-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 13px;border-radius:10px;border:1px solid #EC4899;background:var(--bg-card);color:#EC4899;cursor:pointer;transition:all .15s;font-size:12.5px;font-weight:600;white-space:nowrap}
+.history-btn:hover{background:#EC4899;color:#fff}
+.history-btn svg{width:16px;height:16px;flex-shrink:0}
 
 /* Toolbar */
 .toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:1.6rem}
@@ -208,6 +211,23 @@ body{
 .brands{display:flex;flex-wrap:wrap;gap:6px}
 .btag{font-size:11.5px;padding:4px 10px;background:var(--bg-elev);border:1px solid var(--border);border-radius:6px;color:var(--text-sub)}
 .empty{text-align:center;padding:4rem 1rem;color:var(--text-mute)}
+/* 히스토리 팝업 */
+.history-modal{width:min(680px,96vw)}
+.hist-loading{text-align:center;padding:2rem;color:var(--text-mute);font-size:13px}
+.hist-item{border:1px solid var(--border);border-radius:12px;padding:13px 15px;margin-bottom:10px;background:var(--bg)}
+.hist-item.changed{border-left:3px solid #F59E0B}
+.hist-item.delisted{border-left:3px solid #DC2626}
+.hist-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+.hist-name{font-size:14.5px;font-weight:700;color:var(--text)}
+.hist-code{font-size:11px;color:var(--text-mute);margin-top:1px}
+.hist-tag{font-size:10.5px;font-weight:600;padding:3px 9px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.hist-tag.delisted{background:var(--down-soft);color:var(--down)}
+.hist-tag.changed{background:#FEF3C7;color:#B45309}
+.hist-reason{font-size:12.5px;color:var(--text-sub);line-height:1.6;margin-bottom:6px}
+.hist-reason b{color:var(--text);font-weight:600}
+.hist-meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.hist-chip{font-size:11px;padding:3px 8px;background:var(--bg-elev);border:1px solid var(--border);border-radius:6px;color:var(--text-sub)}
+.hist-brands{font-size:11.5px;color:var(--text-mute);margin-top:6px;line-height:1.5}
 .spinner{width:32px;height:32px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -236,6 +256,8 @@ body{
 @media (max-width:520px){
   .sheet-btn span{display:none}
   .sheet-btn{padding:0 10px}
+  .history-btn span{display:none}
+  .history-btn{padding:0 10px}
   .wrap{padding:1rem 1rem 4rem}
   .brand h1{font-size:18px}
   .brand-logo{height:42px}
@@ -294,6 +316,10 @@ body{
         <div class="basis" id="basis-date">전일 종가 기준</div>
         <div id="fx-line">환율 로딩 중...</div>
       </div>
+      <button class="history-btn" id="history-btn" title="상장폐지 이력 보기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><path d="M3 4v5h5"/></svg>
+        <span>History</span>
+      </button>
       <a class="sheet-btn" id="sheet-btn" href="https://docs.google.com/spreadsheets/d/17eIKSRWUha5jiuB1e7FEBOHE0Jzt30u5klWYiBzyc04/edit" target="_blank" rel="noopener" title="관심종목 시트 열기">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4"/><path d="M8 3h8v6H8zM3 9h18M3 15h18M12 9v12"/></svg>
         <span>종목 관리</span>
@@ -372,9 +398,25 @@ body{
   </div>
 </div>
 
+<!-- 상장폐지 이력 팝업 -->
+<div class="overlay" id="history-overlay">
+  <div class="modal history-modal">
+    <div class="modal-head">
+      <button class="modal-close" id="history-close">✕</button>
+      <div class="m-badge" style="background:#FCE7F3;color:#DB2777">History</div>
+      <div class="m-name">상장폐지 · 상장변경 이력</div>
+      <div class="m-code">관심종목에서 제외되었거나 코드가 변경된 종목</div>
+    </div>
+    <div class="modal-body">
+      <div id="history-content"><div class="hist-loading">이력을 불러오는 중...</div></div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============ CONFIG ============
 const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgJwZtgoU_fioDQfO0pWo3tTME-MLq0wj-T-4sRw9xXLFs2JNuPjLdFzS0XMiRpmERcbhEiGaFAIO1/pub?output=csv";
+const HISTORY_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgJwZtgoU_fioDQfO0pWo3tTME-MLq0wj-T-4sRw9xXLFs2JNuPjLdFzS0XMiRpmERcbhEiGaFAIO1/pub?gid=1665314279&single=true&output=csv";
 // 배포: 자체 프록시 함수 사용 (CORS 해결 + CDN 캐싱). 로컬 file:// 열기용 fallback 포함.
 const USE_LOCAL_API = location.protocol !== 'file:';
 const FALLBACK_PROXY = "https://corsproxy.io/?url=";
@@ -833,6 +875,61 @@ document.getElementById('period-row').addEventListener('click',e=>{
 });
 document.getElementById('close-btn').addEventListener('click',()=>document.getElementById('overlay').classList.remove('open'));
 document.getElementById('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')document.getElementById('overlay').classList.remove('open');});
+
+// ============ HISTORY (상장폐지 이력) ============
+let historyLoaded=false;
+function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function loadHistory(){
+  const box=document.getElementById('history-content');
+  try{
+    const res=await fetch(HISTORY_CSV);
+    const text=await res.text();
+    let rows=parseCSV(text).filter(r=>r.length>=2 && r[0] && r[0].trim());
+    if(!rows.length){box.innerHTML='<div class="empty">이력이 없습니다</div>';return;}
+    rows.shift(); // 헤더 제거
+    // 컬럼: 종목명|원래코드|사유|주체|시점|브랜드|투자포인트|비고
+    const html=rows.map(r=>{
+      const name=escHtml((r[0]||'').trim());
+      const code=escHtml((r[1]||'').trim());
+      const reason=escHtml((r[2]||'').trim());
+      const agent=escHtml((r[3]||'').trim());
+      const when=escHtml((r[4]||'').trim());
+      const brands=escHtml((r[5]||'').trim());
+      const invest=escHtml((r[6]||'').trim());
+      const note=escHtml((r[7]||'').trim());
+      // 티커 변경/분할이면 changed, 아니면 delisted
+      const isChanged=/티커 변경|분할/.test(reason);
+      const cls=isChanged?'changed':'delisted';
+      const tagText=isChanged?'변경':'상폐';
+      const chips=[];
+      if(agent && agent!=='-') chips.push(`<span class="hist-chip">${agent}</span>`);
+      if(when && when!=='-') chips.push(`<span class="hist-chip">${when}</span>`);
+      return `<div class="hist-item ${cls}">
+        <div class="hist-top">
+          <div>
+            <div class="hist-name">${name}</div>
+            ${code?`<div class="hist-code">${code}</div>`:''}
+          </div>
+          <span class="hist-tag ${cls}">${tagText}</span>
+        </div>
+        <div class="hist-reason"><b>${reason}</b>${invest?' · '+invest:''}</div>
+        ${chips.length?`<div class="hist-meta">${chips.join('')}</div>`:''}
+        ${brands?`<div class="hist-brands">브랜드: ${brands}</div>`:''}
+        ${note?`<div class="hist-brands">${note}</div>`:''}
+      </div>`;
+    }).join('');
+    box.innerHTML=html;
+    historyLoaded=true;
+  }catch(e){
+    box.innerHTML='<div class="empty">이력을 불러오지 못했습니다<br><span style="font-size:12px">'+escHtml(e.message)+'</span></div>';
+  }
+}
+document.getElementById('history-btn').addEventListener('click',()=>{
+  document.getElementById('history-overlay').classList.add('open');
+  if(!historyLoaded) loadHistory();
+});
+document.getElementById('history-close').addEventListener('click',()=>document.getElementById('history-overlay').classList.remove('open'));
+document.getElementById('history-overlay').addEventListener('click',e=>{if(e.target.id==='history-overlay')document.getElementById('history-overlay').classList.remove('open');});
 
 // ============ SORT / SEARCH ============
 document.querySelectorAll('.sort-btn').forEach(btn=>{
