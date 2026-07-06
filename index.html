@@ -552,7 +552,11 @@ async function fetchStock(stock){
     if(!result) throw new Error('데이터 없음');
     const meta = result.meta;
     const ts = result.timestamp || [];
-    const closes = result.indicators?.quote?.[0]?.close || [];
+    // 수정주가(배당·액면분할 반영) 우선, 없으면 원본 종가 사용
+    const rawCloses = result.indicators?.quote?.[0]?.close || [];
+    const adjCloses = result.indicators?.adjclose?.[0]?.adjclose || [];
+    const useAdj = adjCloses.length === rawCloses.length && adjCloses.length > 0;
+    const closes = useAdj ? adjCloses : rawCloses;
     const series=[];
     for(let i=0;i<ts.length;i++){ if(closes[i]!=null) series.push({t:ts[i]*1000,c:closes[i]}); }
     if(series.length<2) throw new Error('시계열 부족');
@@ -1054,7 +1058,7 @@ function populateSectors(){
   else { sel.value='ALL'; activeSector='ALL'; }
 }
 // ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
-const CACHE_KEY = 'watchlist_data_cache_v2';
+const CACHE_KEY = 'watchlist_data_cache_v3';
 function todayKey(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
@@ -1117,19 +1121,41 @@ function applyCache(cache){
     }
   });
 }
-// 신규 종목만 시총 받아오기
+// 신규 종목만 시총 받아오기 (실패 시 재시도)
 async function fetchMarketCapsFor(list){
-  const BATCH=40;
-  for(let i=0;i<list.length;i+=BATCH){
-    const batch=list.slice(i,i+BATCH);
+  const BATCH=30;
+  // 한 배치 시도 (성공 시 true)
+  async function tryBatch(batch){
     try{
       const res=await fetch(yahooQuote(batch.map(s=>s.code)));
-      if(!res.ok) continue;
+      if(!res.ok) return false;
       const json=await res.json();
-      const bySym={};(json?.quoteResponse?.result||[]).forEach(q=>bySym[q.symbol]=q);
+      const results=json?.quoteResponse?.result||[];
+      if(!results.length) return false;
+      const bySym={};results.forEach(q=>bySym[q.symbol]=q);
       batch.forEach(s=>{const q=bySym[s.code];assignMcap(s,q);});
-    }catch(e){}
+      return true;
+    }catch(e){ return false; }
+  }
+  for(let i=0;i<list.length;i+=BATCH){
+    const batch=list.slice(i,i+BATCH);
+    let ok=await tryBatch(batch);
+    // 실패 시 최대 2회 재시도 (crumb 일시 실패 대비)
+    for(let attempt=0; !ok && attempt<2; attempt++){
+      await new Promise(r=>setTimeout(r,700));
+      ok=await tryBatch(batch);
+    }
     await new Promise(r=>setTimeout(r,300));
+  }
+  // 마지막 보정: 아직 시총 없는 종목만 모아서 한 번 더 시도
+  const stillMissing=list.filter(s=>s._data && !s._data.mcap);
+  if(stillMissing.length){
+    for(let i=0;i<stillMissing.length;i+=BATCH){
+      const batch=stillMissing.slice(i,i+BATCH);
+      await tryBatch(batch);
+      await new Promise(r=>setTimeout(r,400));
+    }
+    render();
   }
 }
 async function fetchMissing(missing){

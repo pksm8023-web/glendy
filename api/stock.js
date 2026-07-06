@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: '잘못된 코드 형식' });
   }
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}?range=5y&interval=1d`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}?range=5y&interval=1d&events=div,splits`;
 
   try {
     const r = await fetch(url, {
