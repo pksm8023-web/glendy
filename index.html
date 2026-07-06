@@ -360,8 +360,8 @@ body{
       <div class="controls">
         <span class="ctrl-label">정렬</span>
         <button class="sort-btn" data-sort="default">등록순</button>
-        <button class="sort-btn on" data-sort="mcap">시총순</button>
-        <button class="sort-btn" data-sort="change">등락률</button>
+        <button class="sort-btn" data-sort="mcap">시총순</button>
+        <button class="sort-btn on" data-sort="change">등락률</button>
         <button class="sort-btn" data-sort="name">종목명</button>
       </div>
     </div>
@@ -446,11 +446,14 @@ const FX = {};
 // ============ STATE ============
 let STOCKS = [];
 let userOrder = loadOrder();
-let currentSort = 'mcap';
 let searchQuery = '';
 let activeSector = 'ALL';
 let mainPeriod = '1Y';
 let activeCategory = '지표';
+// 탭별 기본 정렬 (지표=등락률, 소비재·비소비재=시총순)
+const CAT_DEFAULT_SORT = { '지표':'change', '소비재':'mcap', '비소비재':'mcap' };
+let currentSort = CAT_DEFAULT_SORT[activeCategory] || 'mcap';
+let catSortState = {};       // 카테고리별 정렬 기억 (독립 상태)
 let loadedCategories = {};  // 카테고리별 데이터 로딩 완료 여부
 let catSectorState = {};    // 카테고리별 섹터 필터 기억 (독립 상태)
 let modalChart = null, modalStock = null;
@@ -989,10 +992,17 @@ document.getElementById('history-close').addEventListener('click',()=>document.g
 document.getElementById('history-overlay').addEventListener('click',e=>{if(e.target.id==='history-overlay')document.getElementById('history-overlay').classList.remove('open');});
 
 // ============ SORT / SEARCH ============
+function syncSortButtons(){
+  document.querySelectorAll('.sort-btn').forEach(b=>{
+    b.classList.toggle('on', b.dataset.sort===currentSort);
+  });
+}
 document.querySelectorAll('.sort-btn').forEach(btn=>{
   btn.addEventListener('click',()=>{
     document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('on'));
-    btn.classList.add('on');currentSort=btn.dataset.sort;render();
+    btn.classList.add('on');currentSort=btn.dataset.sort;
+    catSortState[activeCategory]=currentSort; // 카테고리별 정렬 기억
+    render();
   });
 });
 document.getElementById('sector-select').addEventListener('change',e=>{
@@ -1010,6 +1020,9 @@ document.getElementById('tab-bar').addEventListener('click',async e=>{
   activeCategory=cat;
   // 탭 독립 상태: 검색어 초기화, 섹터는 카테고리별 기억값 복원
   searchQuery=''; document.getElementById('search').value='';
+  // 정렬: 이 카테고리에서 바꾼 적 있으면 그 값, 없으면 탭 기본값
+  currentSort = catSortState[cat] || CAT_DEFAULT_SORT[cat] || 'mcap';
+  syncSortButtons();
   populateSectors();
   render();
   // 아직 로딩 안 됐으면 로딩 (프리로딩 중이면 완료까지 기다림)
