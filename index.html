@@ -689,8 +689,8 @@ function mcapKRW(s){
 }
 function fmtMcapKRW(s){
   const v=mcapKRW(s);if(v==null)return null;
-  if(v>=1)return v.toFixed(1)+'조';
-  return (v*10000).toFixed(0)+'억';
+  if(v>=1)return v.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1})+'조';
+  return (v*10000).toLocaleString(undefined,{maximumFractionDigits:0})+'억';
 }
 function fmtMcapLocal(s){
   const d=s._data;if(!d||!d.mcap)return null;
