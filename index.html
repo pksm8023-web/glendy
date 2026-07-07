@@ -318,7 +318,7 @@ body{
     </div>
     <div class="top-right">
       <div class="meta">
-        <div class="basis" id="basis-date">전일 종가 기준</div>
+        <div class="basis" id="basis-date">장마감 종가 기준</div>
         <div id="fx-line">환율 로딩 중...</div>
       </div>
       <button class="history-btn" id="history-btn" title="상장폐지 이력 보기">
@@ -355,14 +355,15 @@ body{
         <button class="pm-btn" data-p="6M">6개월</button>
         <button class="pm-btn" data-p="YTD">YTD</button>
         <button class="pm-btn on" data-p="1Y">1년</button>
+        <button class="pm-btn" data-p="3Y">3년</button>
         <button class="pm-btn" data-p="5Y">5년</button>
       </div>
       <div class="controls">
         <span class="ctrl-label">정렬</span>
-        <button class="sort-btn" data-sort="default">등록순</button>
-        <button class="sort-btn" data-sort="mcap">시총순</button>
         <button class="sort-btn on" data-sort="change">등락률</button>
+        <button class="sort-btn" data-sort="mcap">시가총액</button>
         <button class="sort-btn" data-sort="name">종목명</button>
+        <button class="sort-btn" data-sort="default">등록순</button>
       </div>
     </div>
   </div>
@@ -401,6 +402,7 @@ body{
         <button class="period-btn" data-p="6M">6개월</button>
         <button class="period-btn" data-p="YTD">YTD</button>
         <button class="period-btn on" data-p="1Y">1년</button>
+        <button class="period-btn" data-p="3Y">3년</button>
         <button class="period-btn" data-p="5Y">5년</button>
       </div>
       <div id="m-invest"></div>
@@ -450,8 +452,8 @@ let searchQuery = '';
 let activeSector = 'ALL';
 let mainPeriod = '1Y';
 let activeCategory = '지표';
-// 탭별 기본 정렬 (지표=등락률, 소비재·비소비재=시총순)
-const CAT_DEFAULT_SORT = { '지표':'change', '소비재':'mcap', '비소비재':'mcap' };
+// 탭별 기본 정렬 (전 탭 등락률 내림차순)
+const CAT_DEFAULT_SORT = { '지표':'change', '소비재':'change', '비소비재':'change' };
 let currentSort = CAT_DEFAULT_SORT[activeCategory] || 'mcap';
 let catSortState = {};       // 카테고리별 정렬 기억 (독립 상태)
 let loadedCategories = {};  // 카테고리별 데이터 로딩 완료 여부
@@ -563,9 +565,17 @@ async function fetchStock(stock){
     const series=[];
     for(let i=0;i<ts.length;i++){ if(closes[i]!=null) series.push({t:ts[i]*1000,c:closes[i]}); }
     if(series.length<2) throw new Error('시계열 부족');
-    // exclude today (previous-close basis)
+    // 전일 종가 기준: 장이 아직 열려 있어 '오늘' 봉이 미확정일 때만 마지막 봉 제외.
+    // 장 마감 후 확정된 종가는 (그게 오늘이라도) 그대로 사용.
     let usable=series;
-    if(new Date(series[series.length-1].t).toDateString()===new Date().toDateString()){
+    const lastT=series[series.length-1].t;
+    const nowMs=Date.now();
+    // 시장 거래시간 정보 (meta.currentTradingPeriod.regular.end = 장 마감 시각, 초단위)
+    const regEnd=(meta.currentTradingPeriod&&meta.currentTradingPeriod.regular&&meta.currentTradingPeriod.regular.end)?meta.currentTradingPeriod.regular.end*1000:null;
+    const marketClosed = regEnd ? (nowMs > regEnd) : true;
+    // 마지막 봉이 '오늘 장중'(아직 마감 전)이면 미확정이므로 제외
+    const lastIsToday = new Date(lastT).toDateString()===new Date().toDateString();
+    if(lastIsToday && !marketClosed){
       usable=series.slice(0,-1);
     }
     const price=usable[usable.length-1].c;
@@ -639,6 +649,7 @@ function sliceSeries(series,period){
   if(period==='1M')cutoff=now-30*D;
   else if(period==='6M')cutoff=now-182*D;
   else if(period==='1Y')cutoff=now-365*D;
+  else if(period==='3Y')cutoff=now-3*365*D;
   else if(period==='5Y')cutoff=now-5*365*D;
   else if(period==='YTD'){cutoff=new Date(new Date(now).getFullYear(),0,1).getTime();}
   else cutoff=0;
@@ -763,7 +774,7 @@ function cardHTML(s){
   const dCls=d.dailyChg>=0?'up':'down';
   const pChg=periodChange(d.series,mainPeriod);
   const pCls=pChg>=0?'up':'down';
-  const pLabel={'1M':'1개월','6M':'6개월','YTD':'YTD','1Y':'1년','5Y':'5년'}[mainPeriod];
+  const pLabel={'1M':'1개월','6M':'6개월','YTD':'YTD','1Y':'1년','3Y':'3년','5Y':'5년'}[mainPeriod];
   // 지표: 원화·시총 없이 값+단위 표시
   const isInd=s.isIndicator;
   const priceStr=isInd ? fmtIndicatorValue(d.price) : fmtPrice(d.price,d.currency);
@@ -907,7 +918,7 @@ function drawModalChart(period){
   const pChg=periodChange(modalStock._data.series,period);
   // update period change label
   const sub=document.getElementById('m-chg-sub');
-  const pLabel={'1M':'1개월','6M':'6개월','YTD':'YTD','1Y':'1년','5Y':'5년'}[period];
+  const pLabel={'1M':'1개월','6M':'6개월','YTD':'YTD','1Y':'1년','3Y':'3년','5Y':'5년'}[period];
   if(pChg!=null){const c=pChg>=0?'up':'down';sub.innerHTML=`<span class="p-label">${pLabel} 등락률</span> <span class="p-val ${c}">${fmtChg(pChg)}</span>`;}
   else sub.innerHTML='';
   if(modalChart)modalChart.destroy();
@@ -1071,7 +1082,7 @@ function populateSectors(){
   else { sel.value='ALL'; activeSector='ALL'; }
 }
 // ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
-const CACHE_KEY = 'watchlist_data_cache_v3';
+const CACHE_KEY = 'watchlist_data_cache_v4';
 function todayKey(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
