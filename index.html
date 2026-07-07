@@ -130,9 +130,10 @@ body{
 .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;stroke:var(--text-mute)}
 .controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .ctrl-label{font-size:11px;color:var(--text-mute);text-transform:uppercase;letter-spacing:0.06em;margin-right:2px}
-.sort-btn{padding:6px 13px;font-size:12.5px;font-weight:500;border:1px solid var(--border-strong);border-radius:8px;background:var(--bg-card);color:var(--text-sub);cursor:pointer;transition:all .12s}
-.sort-btn:hover{border-color:var(--accent);color:var(--accent)}
-.sort-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sort-main{display:flex;gap:3px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:3px}
+.sort-btn{padding:5px 12px;font-size:12px;font-weight:500;border:none;border-radius:7px;background:transparent;color:var(--text-sub);cursor:pointer;transition:all .12s;white-space:nowrap}
+.sort-btn:hover{color:var(--accent)}
+.sort-btn.on{background:var(--accent);color:#fff}
 
 /* Sector */
 .sector{margin-bottom:2rem}
@@ -254,6 +255,7 @@ body{
   .toolbar-right{width:100%;justify-content:space-between}
   .grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
   .period-main{overflow-x:auto}
+  .sort-main{overflow-x:auto}
   .controls{flex-wrap:wrap}
   .modal{width:96vw;max-height:90vh}
   .m-chart-wrap{height:200px}
@@ -360,10 +362,12 @@ body{
       </div>
       <div class="controls">
         <span class="ctrl-label">정렬</span>
-        <button class="sort-btn on" data-sort="change">등락률</button>
-        <button class="sort-btn" data-sort="mcap">시가총액</button>
-        <button class="sort-btn" data-sort="name">종목명</button>
-        <button class="sort-btn" data-sort="default">등록순</button>
+        <div class="sort-main" id="sort-main">
+          <button class="sort-btn on" data-sort="change">등락률</button>
+          <button class="sort-btn" data-sort="mcap">시가총액</button>
+          <button class="sort-btn" data-sort="name">종목명</button>
+          <button class="sort-btn" data-sort="default">등록순</button>
+        </div>
       </div>
     </div>
   </div>
@@ -391,7 +395,7 @@ body{
         <div class="m-price-left">
           <span class="m-price" id="m-price"></span>
           <span class="m-chg" id="m-chg"></span>
-          <span class="m-chg-tag" id="m-chg-tag">(전일)</span>
+          <span class="m-chg-tag" id="m-chg-tag">(종가)</span>
         </div>
         <div class="m-price-right" id="m-chg-sub"></div>
       </div>
@@ -883,7 +887,13 @@ function openModal(s){
     const cls=d.dailyChg>=0?'up':'down';
     document.getElementById('m-price').textContent=s.isIndicator?fmtIndicatorValue(d.price):fmtPrice(d.price,d.currency);
     const chg=document.getElementById('m-chg');chg.textContent=fmtChg(d.dailyChg);chg.className='m-chg '+cls;
-    document.getElementById('m-chg-tag').textContent='(전일)';
+    // 마지막 종가 날짜 표시 (예: 7/7 종가)
+    let tag='(종가)';
+    if(d.series&&d.series.length){
+      const dt=new Date(d.series[d.series.length-1].t);
+      tag=`(${dt.getMonth()+1}/${dt.getDate()} 종가)`;
+    }
+    document.getElementById('m-chg-tag').textContent=tag;
   }else{
     document.getElementById('m-price').textContent='-';
     document.getElementById('m-chg').textContent='';
