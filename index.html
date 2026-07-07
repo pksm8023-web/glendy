@@ -201,6 +201,8 @@ body{
 .m-price-right .p-val{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
 .m-price-right .p-val.up{color:var(--up)}.m-price-right .p-val.down{color:var(--down)}
 .m-mcap-row{font-size:12.5px;color:var(--text-sub);margin-bottom:1.2rem;display:flex;align-items:center;gap:8px}
+.m-per-row{margin-top:-0.9rem}
+.m-per-row:empty{display:none}
 .m-mcap-row .mc-label{color:var(--text-mute)}
 .m-mcap-row .mc-val{font-weight:600;color:var(--text)}
 .m-mcap-row .mc-sep{color:var(--border-strong)}
@@ -400,6 +402,7 @@ body{
         <div class="m-price-right" id="m-chg-sub"></div>
       </div>
       <div class="m-mcap-row" id="m-mcap-row"></div>
+      <div class="m-mcap-row m-per-row" id="m-per-row"></div>
       <div class="m-chart-wrap"><canvas id="m-chart"></canvas></div>
       <div class="period-row" id="period-row">
         <button class="period-btn" data-p="1M">1개월</button>
@@ -672,6 +675,7 @@ function fmtPrice(v,cur){
   return v.toLocaleString(undefined,{minimumFractionDigits:dec,maximumFractionDigits:dec});
 }
 function fmtChg(v){ if(v==null)return '-';return (v>=0?'+':'')+v.toFixed(2)+'%'; }
+function fmtPER(v){ if(v==null||isNaN(v)||v<=0)return '-'; return v.toLocaleString(undefined,{minimumFractionDigits:1,maximumFractionDigits:1}); }
 // 영국(GBp/GBX) 종목: 주가는 펜스지만 marketCap은 이미 파운드(GBP) 기준으로 옴.
 // 따라서 시총 금액은 그대로 두고, 환율 조회용 통화코드만 GBP로 매핑.
 // quote 결과 q에서 시총을 종목에 반영. marketCap이 없거나 0이면 주식수×주가로 계산.
@@ -693,6 +697,9 @@ function assignMcap(s, q){
     }
   }
   if(mc>0){ s._data.mcap=mc; s._data.mcapCur=cur; }
+  // PER 저장 (선행/후행)
+  s._data.forwardPE = (typeof q.forwardPE==='number' && q.forwardPE>0) ? q.forwardPE : null;
+  s._data.trailingPE = (typeof q.trailingPE==='number' && q.trailingPE>0) ? q.trailingPE : null;
 }
 function mcapCurrency(cur){
   if(!cur) return cur;
@@ -782,9 +789,10 @@ function cardHTML(s){
   // 지표: 원화·시총 없이 값+단위 표시
   const isInd=s.isIndicator;
   const priceStr=isInd ? fmtIndicatorValue(d.price) : fmtPrice(d.price,d.currency);
+  const perStr = (!isInd && d.forwardPE) ? ` · PER ${fmtPER(d.forwardPE)}` : '';
   const footLeft=isInd
     ? `<span class="card-mcap-foot">${s.currency?s.currency:''}</span>`
-    : `<span class="card-mcap-foot">${fmtMcapKRW(s)?('시총 '+fmtMcapKRW(s)):'<span style=\"color:var(--text-mute)\">시총 -</span>'}</span>`;
+    : `<span class="card-mcap-foot">${fmtMcapKRW(s)?('시총 '+fmtMcapKRW(s)):'<span style=\"color:var(--text-mute)\">시총 -</span>'}${perStr}</span>`;
   return `<div class="card" data-key="${key}" data-code="${s.code}">
     <div class="card-top">
       <div class="card-id">
@@ -900,8 +908,10 @@ function openModal(s){
     document.getElementById('m-chg-tag').textContent='';
   }
   const mcapEl=document.getElementById('m-mcap-row');
+  const perEl=document.getElementById('m-per-row');
   if(s.isIndicator){
     mcapEl.innerHTML=`<span class="mc-label">단위</span><span class="mc-val">${s.currency||'-'}</span>`;
+    perEl.innerHTML='';
   }else{
     const mcapK=fmtMcapKRW(s), mcapL=fmtMcapLocal(s);
     if(mcapK||mcapL){
@@ -909,6 +919,9 @@ function openModal(s){
     }else{
       mcapEl.innerHTML=`<span class="mc-label">시가총액</span><span class="mc-val">-</span>`;
     }
+    // PER 선행·후행
+    const fp=d?d.forwardPE:null, tp=d?d.trailingPE:null;
+    perEl.innerHTML=`<span class="mc-label">PER(선행)</span><span class="mc-val">${fmtPER(fp)}</span><span class="mc-sep">|</span><span class="mc-label">PER(후행)</span><span class="mc-val">${fmtPER(tp)}</span>`;
   }
   const inv=document.getElementById('m-invest');
   if(s.invest)inv.innerHTML=`<div class="sec-title">${s.isIndicator?'설명':'투자 포인트 · 체크리스트'}</div><div class="invest-box">${s.invest.split('/').map(x=>'• '+x.trim()).join('\n')}</div>`;
@@ -1092,7 +1105,7 @@ function populateSectors(){
   else { sel.value='ALL'; activeSector='ALL'; }
 }
 // ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
-const CACHE_KEY = 'watchlist_data_cache_v4';
+const CACHE_KEY = 'watchlist_data_cache_v5';
 function todayKey(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
@@ -1119,6 +1132,7 @@ function saveCache(){
         d:s._data ? {
           p:s._data.price, pc:s._data.prevClose, dc:s._data.dailyChg,
           cur:s._data.currency, mc:s._data.mcap, mcc:s._data.mcapCur, ln:s._data.longName,
+          fpe:s._data.forwardPE, tpe:s._data.trailingPE,
           s:packSeries(s._data.series)
         } : null,
         e:s._err
@@ -1148,6 +1162,7 @@ function applyCache(cache){
       s._data={
         price:c.d.p, prevClose:c.d.pc, dailyChg:c.d.dc,
         currency:c.d.cur, mcap:c.d.mc, mcapCur:c.d.mcc, longName:c.d.ln,
+        forwardPE:c.d.fpe??null, trailingPE:c.d.tpe??null,
         series:unpackSeries(c.d.s)
       };
     }else{
