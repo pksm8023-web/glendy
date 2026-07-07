@@ -110,7 +110,9 @@ body{
 /* Toolbar */
 .toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:1.6rem}
 /* 카테고리 탭 */
-.tab-bar{display:flex;gap:4px;margin-bottom:1.3rem;border-bottom:1px solid var(--border)}
+.tab-bar{display:flex;gap:4px;margin-bottom:1.3rem;border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab-bar::-webkit-scrollbar{height:0}
+.cat-tab{flex-shrink:0}
 .cat-tab{padding:10px 22px;font-size:14px;font-weight:600;border:none;background:transparent;color:var(--text-mute);cursor:pointer;position:relative;transition:color .15s;border-bottom:2.5px solid transparent;margin-bottom:-1px}
 .cat-tab:hover{color:var(--text-sub)}
 .cat-tab.on{color:var(--accent);border-bottom-color:var(--accent)}
@@ -343,7 +345,9 @@ body{
   <div class="tab-bar" id="tab-bar">
     <button class="cat-tab on" data-cat="지표">지표</button>
     <button class="cat-tab" data-cat="소비재">소비재</button>
-    <button class="cat-tab" data-cat="비소비재">비소비재</button>
+    <button class="cat-tab" data-cat="경험소비">경험소비</button>
+    <button class="cat-tab" data-cat="산업재">산업재</button>
+    <button class="cat-tab" data-cat="비산업재">비산업재</button>
   </div>
 
   <div class="toolbar">
@@ -462,7 +466,7 @@ let activeSector = 'ALL';
 let mainPeriod = '1Y';
 let activeCategory = '지표';
 // 탭별 기본 정렬 (전 탭 등락률 내림차순)
-const CAT_DEFAULT_SORT = { '지표':'change', '소비재':'change', '비소비재':'change' };
+const CAT_DEFAULT_SORT = { '지표':'change', '소비재':'change', '경험소비':'change', '산업재':'change', '비산업재':'change' };
 let currentSort = CAT_DEFAULT_SORT[activeCategory] || 'mcap';
 let catSortState = {};       // 카테고리별 정렬 기억 (독립 상태)
 let loadedCategories = {};  // 카테고리별 데이터 로딩 완료 여부
@@ -1290,7 +1294,7 @@ let preloadRunning=false;
 async function backgroundPreload(){
   if(preloadRunning) return;
   preloadRunning=true;
-  const order=['지표','소비재','비소비재'];
+  const order=['지표','소비재','경험소비','산업재','비산업재'];
   for(const cat of order){
     if(!loadedCategories[cat]){
       try{ await ensureCategoryLoaded(cat); }catch(e){}
@@ -1319,7 +1323,7 @@ async function init(){
       applyCache(cache);
       updateFXLine();
       render();
-      ['소비재','비소비재'].forEach(cat=>{
+      ['소비재','경험소비','산업재','비산업재'].forEach(cat=>{
         const targets=STOCKS.filter(s=>s.category===cat);
         const done=targets.filter(s=>s._data||s._err).length;
         if(targets.length>0 && done===targets.length) loadedCategories[cat]=true;
