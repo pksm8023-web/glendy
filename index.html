@@ -611,7 +611,7 @@ async function loadIndicators(){
 // ============ YAHOO CHART FETCH ============
 async function fetchStock(stock){
   try{
-    const res = await fetch(yahooChart(stock.code,'5y','1d'));
+    const res = await fetch(yahooChart(stock.code,'max','1d'));
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     const result = json?.chart?.result?.[0];
@@ -1228,7 +1228,7 @@ function populateSectors(){
   else { sel.value='ALL'; activeSector='ALL'; }
 }
 // ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
-const CACHE_KEY = 'watchlist_data_cache_v5';
+const CACHE_KEY = 'watchlist_data_cache_v6';
 function todayKey(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
