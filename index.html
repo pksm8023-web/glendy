@@ -121,10 +121,16 @@ body{
 .sector-select{padding:8px 32px 8px 13px;font-size:13px;font-weight:500;border:1px solid var(--border-strong);border-radius:10px;background:var(--bg-card);color:var(--text);cursor:pointer;outline:none;transition:border-color .15s;
   appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
 .sector-select:focus{border-color:var(--accent)}
-.period-main{display:flex;gap:3px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:3px}
+.period-main{display:flex;align-items:center;gap:6px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:5px 8px}
 .pm-btn{padding:5px 12px;font-size:12px;font-weight:500;border:none;border-radius:7px;background:transparent;color:var(--text-sub);cursor:pointer;transition:all .12s;white-space:nowrap}
 .pm-btn:hover{color:var(--accent)}
 .pm-btn.on{background:var(--accent);color:#fff}
+.period-num{width:44px;padding:5px 4px;font-size:12.5px;font-weight:600;text-align:center;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s;-moz-appearance:textfield}
+.period-num::-webkit-outer-spin-button,.period-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.period-num:focus{border-color:var(--accent)}
+.period-unit{padding:5px 26px 5px 10px;font-size:12.5px;font-weight:600;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg-card);color:var(--text);cursor:pointer;outline:none;transition:border-color .15s;
+  appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
+.period-unit:focus{border-color:var(--accent)}
 .search{width:260px;max-width:100%;position:relative}
 .search input{width:100%;padding:8px 14px 8px 36px;font-size:13.5px;border:1px solid var(--border-strong);border-radius:10px;background:var(--bg-card);color:var(--text);outline:none;transition:border-color .15s}
 .search input:focus{border-color:var(--accent)}
@@ -362,12 +368,13 @@ body{
     </div>
     <div class="toolbar-right">
       <div class="period-main" id="period-main">
-        <button class="pm-btn" data-p="1M">1개월</button>
-        <button class="pm-btn" data-p="6M">6개월</button>
-        <button class="pm-btn" data-p="YTD">YTD</button>
-        <button class="pm-btn on" data-p="1Y">1년</button>
-        <button class="pm-btn" data-p="3Y">3년</button>
-        <button class="pm-btn" data-p="5Y">5년</button>
+        <input type="number" id="period-num" class="period-num" min="1" max="99" step="1" value="1" inputmode="numeric" aria-label="기간 숫자">
+        <select id="period-unit" class="period-unit" aria-label="기간 단위">
+          <option value="D">일</option>
+          <option value="W">주</option>
+          <option value="M">개월</option>
+          <option value="Y" selected>년</option>
+        </select>
       </div>
       <div class="controls">
         <span class="ctrl-label">정렬</span>
@@ -656,22 +663,38 @@ async function fetchFX(currencies){
 }
 
 // ============ SERIES SLICE + PERIOD CHANGE ============
+// period 형식: 'YTD' 또는 숫자+단위(D=일,W=주,M=개월,Y=년) 조합, 예) '5W','3M','1Y','12D'
 function sliceSeries(series,period){
   if(!series||!series.length)return [];
-  const now=series[series.length-1].t;const D=86400000;let cutoff;
-  if(period==='1M')cutoff=now-30*D;
-  else if(period==='6M')cutoff=now-182*D;
-  else if(period==='1Y')cutoff=now-365*D;
-  else if(period==='3Y')cutoff=now-3*365*D;
-  else if(period==='5Y')cutoff=now-5*365*D;
-  else if(period==='YTD'){cutoff=new Date(new Date(now).getFullYear(),0,1).getTime();}
-  else cutoff=0;
+  const now=series[series.length-1].t;let cutoff;
+  if(period==='YTD'){
+    cutoff=new Date(new Date(now).getFullYear(),0,1).getTime();
+  }else{
+    const m=/^(\d+)([DWMY])$/.exec(period||'');
+    if(m){
+      const n=parseInt(m[1],10);const unit=m[2];
+      const d=new Date(now);
+      if(unit==='D')d.setDate(d.getDate()-n);
+      else if(unit==='W')d.setDate(d.getDate()-n*7);
+      else if(unit==='M')d.setMonth(d.getMonth()-n);
+      else if(unit==='Y')d.setFullYear(d.getFullYear()-n);
+      cutoff=d.getTime();
+    }else cutoff=0;
+  }
   return series.filter(p=>p.t>=cutoff);
 }
 function periodChange(series,period){
   const d=sliceSeries(series,period);
   if(d.length<2)return null;
   return (d[d.length-1].c-d[0].c)/d[0].c*100;
+}
+// period 문자열 -> 화면 표시용 한글 라벨 ('YTD', '5주', '3개월', '1년' 등)
+function periodLabel(period){
+  if(period==='YTD')return 'YTD';
+  const m=/^(\d+)([DWMY])$/.exec(period||'');
+  if(!m)return period;
+  const unitLabel={D:'일',W:'주',M:'개월',Y:'년'}[m[2]];
+  return m[1]+unitLabel;
 }
 
 // ============ FORMAT ============
@@ -792,7 +815,7 @@ function cardHTML(s){
   const dCls=d.dailyChg>=0?'up':'down';
   const pChg=periodChange(d.series,mainPeriod);
   const pCls=pChg>=0?'up':'down';
-  const pLabel={'1M':'1개월','6M':'6개월','YTD':'YTD','1Y':'1년','3Y':'3년','5Y':'5년'}[mainPeriod];
+  const pLabel=periodLabel(mainPeriod);
   // 지표: 원화·시총 없이 값+단위 표시
   const isInd=s.isIndicator;
   const priceStr=isInd ? fmtIndicatorValue(d.price) : fmtPrice(d.price,d.currency);
@@ -1073,11 +1096,25 @@ document.getElementById('tab-bar').addEventListener('click',async e=>{
     if(activeCategory===cat) render();
   }
 });
-document.getElementById('period-main').addEventListener('click',e=>{
-  const btn=e.target.closest('.pm-btn');if(!btn)return;
-  document.querySelectorAll('.pm-btn').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');mainPeriod=btn.dataset.p;render();
+function applyMainPeriodFromInputs(){
+  const numEl=document.getElementById('period-num');
+  const unitEl=document.getElementById('period-unit');
+  let n=parseInt(numEl.value,10);
+  if(!n||n<1)n=1;
+  if(n>99)n=99;
+  numEl.value=n;
+  mainPeriod=n+unitEl.value;
+  render();
+}
+let periodNumTimer;
+document.getElementById('period-num').addEventListener('input',()=>{
+  clearTimeout(periodNumTimer);
+  periodNumTimer=setTimeout(applyMainPeriodFromInputs,350);
 });
+document.getElementById('period-num').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){clearTimeout(periodNumTimer);applyMainPeriodFromInputs();}
+});
+document.getElementById('period-unit').addEventListener('change',applyMainPeriodFromInputs);
 let searchTimer;
 document.getElementById('search').addEventListener('input',e=>{
   clearTimeout(searchTimer);searchTimer=setTimeout(()=>{searchQuery=e.target.value;render();},180);
