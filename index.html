@@ -125,8 +125,8 @@ body{
 .pm-btn{padding:5px 12px;font-size:12px;font-weight:500;border:none;border-radius:7px;background:transparent;color:var(--text-sub);cursor:pointer;transition:all .12s;white-space:nowrap}
 .pm-btn:hover{color:var(--accent)}
 .pm-btn.on{background:var(--accent);color:#fff}
-.period-num{width:44px;padding:5px 4px;font-size:12.5px;font-weight:600;text-align:center;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg);color:var(--text);outline:none;transition:border-color .15s;-moz-appearance:textfield}
-.period-num::-webkit-outer-spin-button,.period-num::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.period-num{padding:5px 22px 5px 10px;font-size:12.5px;font-weight:600;text-align:center;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg);color:var(--text);outline:none;cursor:pointer;transition:border-color .15s;
+  appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
 .period-num:focus{border-color:var(--accent)}
 .period-unit{padding:5px 26px 5px 10px;font-size:12.5px;font-weight:600;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg-card);color:var(--text);cursor:pointer;outline:none;transition:border-color .15s;
   appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
@@ -368,12 +368,26 @@ body{
     </div>
     <div class="toolbar-right">
       <div class="period-main" id="period-main">
-        <input type="number" id="period-num" class="period-num" min="1" max="99" step="1" value="1" inputmode="numeric" aria-label="기간 숫자">
+        <span class="ctrl-label">기간</span>
+        <select id="period-num" class="period-num" aria-label="기간 숫자">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7">7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+          <option value="10">10</option>
+          <option value="11">11</option>
+          <option value="12">12</option>
+        </select>
         <select id="period-unit" class="period-unit" aria-label="기간 단위">
-          <option value="D">일</option>
-          <option value="W">주</option>
-          <option value="M">개월</option>
-          <option value="Y" selected>년</option>
+          <option value="D">day</option>
+          <option value="W">week</option>
+          <option value="M">month</option>
+          <option value="Y" selected>year</option>
         </select>
       </div>
       <div class="controls">
@@ -1099,21 +1113,10 @@ document.getElementById('tab-bar').addEventListener('click',async e=>{
 function applyMainPeriodFromInputs(){
   const numEl=document.getElementById('period-num');
   const unitEl=document.getElementById('period-unit');
-  let n=parseInt(numEl.value,10);
-  if(!n||n<1)n=1;
-  if(n>99)n=99;
-  numEl.value=n;
-  mainPeriod=n+unitEl.value;
+  mainPeriod=numEl.value+unitEl.value;
   render();
 }
-let periodNumTimer;
-document.getElementById('period-num').addEventListener('input',()=>{
-  clearTimeout(periodNumTimer);
-  periodNumTimer=setTimeout(applyMainPeriodFromInputs,350);
-});
-document.getElementById('period-num').addEventListener('keydown',e=>{
-  if(e.key==='Enter'){clearTimeout(periodNumTimer);applyMainPeriodFromInputs();}
-});
+document.getElementById('period-num').addEventListener('change',applyMainPeriodFromInputs);
 document.getElementById('period-unit').addEventListener('change',applyMainPeriodFromInputs);
 let searchTimer;
 document.getElementById('search').addEventListener('input',e=>{
