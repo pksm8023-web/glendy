@@ -495,8 +495,11 @@ const INDICATOR_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgJwZtgo
 // 배포: 자체 프록시 함수 사용 (CORS 해결 + CDN 캐싱). 로컬 file:// 열기용 fallback 포함.
 const USE_LOCAL_API = location.protocol !== 'file:';
 const FALLBACK_PROXY = "https://corsproxy.io/?url=";
+// range=max 관련 버그 수정(20y로 고정) 배포 후, CDN에 캐시된 예전(성긴 데이터) 응답을
+// 재사용하지 않도록 쿼리에 버전을 붙여 캐시 키를 새로 만든다. 백엔드 데이터 로직을 바꿀 때마다 올릴 것.
+const STOCK_API_VERSION = 2;
 const yahooChart = (code, range, interval) => {
-  if (USE_LOCAL_API) return `/api/stock?code=${encodeURIComponent(code)}`;
+  if (USE_LOCAL_API) return `/api/stock?code=${encodeURIComponent(code)}&v=${STOCK_API_VERSION}`;
   return FALLBACK_PROXY + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${code}?range=${range}&interval=${interval}`);
 };
 const yahooQuote = (codes) => {
@@ -611,7 +614,7 @@ async function loadIndicators(){
 // ============ YAHOO CHART FETCH ============
 async function fetchStock(stock){
   try{
-    const res = await fetch(yahooChart(stock.code,'max','1d'));
+    const res = await fetch(yahooChart(stock.code,'20y','1d'));
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     const result = json?.chart?.result?.[0];
@@ -1228,7 +1231,7 @@ function populateSectors(){
   else { sel.value='ALL'; activeSector='ALL'; }
 }
 // ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
-const CACHE_KEY = 'watchlist_data_cache_v6';
+const CACHE_KEY = 'watchlist_data_cache_v7';
 function todayKey(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;

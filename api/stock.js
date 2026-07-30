@@ -1,5 +1,8 @@
 // api/stock.js
-// Yahoo Finance 차트 프록시 (전일 종가 기준, 전체 기간 일봉 - 프론트의 빠른선택/기간선택이 임의의 과거 날짜까지 지원하므로 range=max로 최대한 받아옴)
+// Yahoo Finance 차트 프록시 (전일 종가 기준, 최근 20년 일봉)
+// range=max로 요청하면 상장 기간이 아주 긴 종목(대형 지수·오래된 대형주)에 한해
+// Yahoo가 응답 크기를 줄이려고 interval=1d를 요청해도 실제로는 성긴 데이터를 내려주는 경우가 있어
+// 명시적인 숫자 range(20y)로 고정해 일봉 데이터를 보장한다.
 // 사용: /api/stock?code=MC.PA
 
 export default async function handler(req, res) {
@@ -18,7 +21,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: '잘못된 코드 형식' });
   }
 
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}?range=max&interval=1d&events=div,splits`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(code)}?range=20y&interval=1d&events=div,splits`;
 
   try {
     const r = await fetch(url, {
