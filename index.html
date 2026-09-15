@@ -121,28 +121,10 @@ body{
 .sector-select{padding:8px 32px 8px 13px;font-size:13px;font-weight:500;border:1px solid var(--border-strong);border-radius:10px;background:var(--bg-card);color:var(--text);cursor:pointer;outline:none;transition:border-color .15s;
   appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
 .sector-select:focus{border-color:var(--accent)}
-.period-main{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:5px 8px}
+.period-main{display:flex;gap:3px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:3px}
 .pm-btn{padding:5px 12px;font-size:12px;font-weight:500;border:none;border-radius:7px;background:transparent;color:var(--text-sub);cursor:pointer;transition:all .12s;white-space:nowrap}
 .pm-btn:hover{color:var(--accent)}
 .pm-btn.on{background:var(--accent);color:#fff}
-.period-mode{display:flex;align-items:center;gap:10px;padding-right:9px;border-right:1px solid var(--border);margin-right:1px}
-.period-radio{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-sub);cursor:pointer;white-space:nowrap;transition:color .12s}
-.period-radio input{width:13px;height:13px;accent-color:var(--accent);cursor:pointer;margin:0}
-.period-radio.active{color:var(--text)}
-.period-radio.active span{font-weight:700}
-.period-quick{display:flex;align-items:center;gap:6px}
-.period-range{display:none;align-items:center;gap:6px}
-.period-range.show{display:flex}
-.period-quick.hide{display:none}
-.period-range-sep{color:var(--text-mute);font-size:12px}
-.period-date{padding:5px 8px;font-size:12px;font-weight:600;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg);color:var(--text);outline:none;cursor:pointer;transition:border-color .15s;font-family:inherit;color-scheme:light dark}
-.period-date:focus{border-color:var(--accent)}
-.period-num{padding:5px 22px 5px 10px;font-size:12.5px;font-weight:600;text-align:center;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg);color:var(--text);outline:none;cursor:pointer;transition:border-color .15s;
-  appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}
-.period-num:focus{border-color:var(--accent)}
-.period-unit{padding:5px 26px 5px 10px;font-size:12.5px;font-weight:600;border:1px solid var(--border-strong);border-radius:7px;background:var(--bg-card);color:var(--text);cursor:pointer;outline:none;transition:border-color .15s;
-  appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center}
-.period-unit:focus{border-color:var(--accent)}
 .search{width:260px;max-width:100%;position:relative}
 .search input{width:100%;padding:8px 14px 8px 36px;font-size:13.5px;border:1px solid var(--border-strong);border-radius:10px;background:var(--bg-card);color:var(--text);outline:none;transition:border-color .15s}
 .search input:focus{border-color:var(--accent)}
@@ -380,42 +362,12 @@ body{
     </div>
     <div class="toolbar-right">
       <div class="period-main" id="period-main">
-        <span class="ctrl-label">기간</span>
-        <div class="period-mode" id="period-mode">
-          <label class="period-radio active" data-mode="quick">
-            <input type="radio" name="period-mode" value="quick" checked><span>빠른선택</span>
-          </label>
-          <label class="period-radio" data-mode="range">
-            <input type="radio" name="period-mode" value="range"><span>기간선택</span>
-          </label>
-        </div>
-        <div class="period-quick" id="period-quick">
-          <select id="period-num" class="period-num" aria-label="기간 숫자">
-            <option value="1" selected>1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <option value="10">10</option>
-            <option value="11">11</option>
-            <option value="12">12</option>
-          </select>
-          <select id="period-unit" class="period-unit" aria-label="기간 단위">
-            <option value="D">day</option>
-            <option value="W">week</option>
-            <option value="M">month</option>
-            <option value="Y" selected>year</option>
-          </select>
-        </div>
-        <div class="period-range" id="period-range">
-          <input type="date" id="period-start" class="period-date" aria-label="시작일">
-          <span class="period-range-sep">~</span>
-          <input type="date" id="period-end" class="period-date" aria-label="종료일">
-        </div>
+        <button class="pm-btn" data-p="1M">1개월</button>
+        <button class="pm-btn" data-p="6M">6개월</button>
+        <button class="pm-btn" data-p="YTD">YTD</button>
+        <button class="pm-btn on" data-p="1Y">1년</button>
+        <button class="pm-btn" data-p="3Y">3년</button>
+        <button class="pm-btn" data-p="5Y">5년</button>
       </div>
       <div class="controls">
         <span class="ctrl-label">정렬</span>
@@ -495,11 +447,8 @@ const INDICATOR_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTgJwZtgo
 // 배포: 자체 프록시 함수 사용 (CORS 해결 + CDN 캐싱). 로컬 file:// 열기용 fallback 포함.
 const USE_LOCAL_API = location.protocol !== 'file:';
 const FALLBACK_PROXY = "https://corsproxy.io/?url=";
-// range=max 관련 버그 수정(20y로 고정) 배포 후, CDN에 캐시된 예전(성긴 데이터) 응답을
-// 재사용하지 않도록 쿼리에 버전을 붙여 캐시 키를 새로 만든다. 백엔드 데이터 로직을 바꿀 때마다 올릴 것.
-const STOCK_API_VERSION = 2;
 const yahooChart = (code, range, interval) => {
-  if (USE_LOCAL_API) return `/api/stock?code=${encodeURIComponent(code)}&v=${STOCK_API_VERSION}`;
+  if (USE_LOCAL_API) return `/api/stock?code=${encodeURIComponent(code)}`;
   return FALLBACK_PROXY + encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${code}?range=${range}&interval=${interval}`);
 };
 const yahooQuote = (codes) => {
@@ -614,7 +563,7 @@ async function loadIndicators(){
 // ============ YAHOO CHART FETCH ============
 async function fetchStock(stock){
   try{
-    const res = await fetch(yahooChart(stock.code,'20y','1d'));
+    const res = await fetch(yahooChart(stock.code,'5y','1d'));
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     const result = json?.chart?.result?.[0];
@@ -707,49 +656,22 @@ async function fetchFX(currencies){
 }
 
 // ============ SERIES SLICE + PERIOD CHANGE ============
-// period 형식: 'YTD' / 숫자+단위(D=일,W=주,M=개월,Y=년) 조합(예: '5W','3M','1Y') / 'R:시작ms:종료ms'(사용자 지정 기간)
 function sliceSeries(series,period){
   if(!series||!series.length)return [];
-  const now=series[series.length-1].t;
-  if(typeof period==='string' && period.charAt(0)==='R' && period.charAt(1)===':'){
-    const parts=period.split(':');
-    const start=parseInt(parts[1],10), end=parseInt(parts[2],10);
-    return series.filter(p=>p.t>=start && p.t<=end);
-  }
-  let cutoff;
-  if(period==='YTD'){
-    cutoff=new Date(new Date(now).getFullYear(),0,1).getTime();
-  }else{
-    const m=/^(\d+)([DWMY])$/.exec(period||'');
-    if(m){
-      const n=parseInt(m[1],10);const unit=m[2];
-      const d=new Date(now);
-      if(unit==='D')d.setDate(d.getDate()-n);
-      else if(unit==='W')d.setDate(d.getDate()-n*7);
-      else if(unit==='M')d.setMonth(d.getMonth()-n);
-      else if(unit==='Y')d.setFullYear(d.getFullYear()-n);
-      cutoff=d.getTime();
-    }else cutoff=0;
-  }
+  const now=series[series.length-1].t;const D=86400000;let cutoff;
+  if(period==='1M')cutoff=now-30*D;
+  else if(period==='6M')cutoff=now-182*D;
+  else if(period==='1Y')cutoff=now-365*D;
+  else if(period==='3Y')cutoff=now-3*365*D;
+  else if(period==='5Y')cutoff=now-5*365*D;
+  else if(period==='YTD'){cutoff=new Date(new Date(now).getFullYear(),0,1).getTime();}
+  else cutoff=0;
   return series.filter(p=>p.t>=cutoff);
 }
 function periodChange(series,period){
   const d=sliceSeries(series,period);
   if(d.length<2)return null;
   return (d[d.length-1].c-d[0].c)/d[0].c*100;
-}
-// period 문자열 -> 화면 표시용 라벨 ('YTD', '5주', '3개월', '1년', 사용자 지정 기간이면 'YYYY.MM.DD~YYYY.MM.DD')
-function periodLabel(period){
-  if(period==='YTD')return 'YTD';
-  if(typeof period==='string' && period.charAt(0)==='R' && period.charAt(1)===':'){
-    const parts=period.split(':');
-    const fmt=ms=>{const d=new Date(parseInt(ms,10));return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;};
-    return `${fmt(parts[1])}~${fmt(parts[2])}`;
-  }
-  const m=/^(\d+)([DWMY])$/.exec(period||'');
-  if(!m)return period;
-  const unitLabel={D:'일',W:'주',M:'개월',Y:'년'}[m[2]];
-  return m[1]+unitLabel;
 }
 
 // ============ FORMAT ============
@@ -870,7 +792,7 @@ function cardHTML(s){
   const dCls=d.dailyChg>=0?'up':'down';
   const pChg=periodChange(d.series,mainPeriod);
   const pCls=pChg>=0?'up':'down';
-  const pLabel=periodLabel(mainPeriod);
+  const pLabel={'1M':'1개월','6M':'6개월','YTD':'YTD','1Y':'1년','3Y':'3년','5Y':'5년'}[mainPeriod];
   // 지표: 원화·시총 없이 값+단위 표시
   const isInd=s.isIndicator;
   const priceStr=isInd ? fmtIndicatorValue(d.price) : fmtPrice(d.price,d.currency);
@@ -1067,6 +989,7 @@ async function loadHistory(){
     let rows=parseCSV(text).filter(r=>r.length>=2 && r[0] && r[0].trim());
     if(!rows.length){box.innerHTML='<div class="empty">이력이 없습니다</div>';return;}
     rows.shift(); // 헤더 제거
+    rows.reverse(); // 최근 추가분(시트 맨 아래)이 위로 오도록 역순
     // 컬럼: 종목명|원래코드|사유|주체|시점|브랜드|투자포인트|비고
     const html=rows.map(r=>{
       const name=escHtml((r[0]||'').trim());
@@ -1151,51 +1074,11 @@ document.getElementById('tab-bar').addEventListener('click',async e=>{
     if(activeCategory===cat) render();
   }
 });
-function currentPeriodMode(){
-  const checked=document.querySelector('input[name="period-mode"]:checked');
-  return checked?checked.value:'quick';
-}
-function applyMainPeriodFromInputs(){
-  const mode=currentPeriodMode();
-  if(mode==='range'){
-    const sVal=document.getElementById('period-start').value;
-    const eVal=document.getElementById('period-end').value;
-    if(!sVal||!eVal)return; // 둘 다 선택될 때까지 대기
-    const startMs=new Date(sVal+'T00:00:00').getTime();
-    const endMs=new Date(eVal+'T23:59:59').getTime();
-    if(isNaN(startMs)||isNaN(endMs)||startMs>endMs)return; // 잘못된 범위는 무시
-    mainPeriod=`R:${startMs}:${endMs}`;
-  }else{
-    const numEl=document.getElementById('period-num');
-    const unitEl=document.getElementById('period-unit');
-    mainPeriod=numEl.value+unitEl.value;
-  }
-  render();
-}
-function setPeriodMode(mode){
-  document.getElementById('period-quick').style.display=(mode==='quick')?'flex':'none';
-  document.getElementById('period-range').style.display=(mode==='range')?'flex':'none';
-  document.querySelectorAll('.period-radio').forEach(l=>l.classList.toggle('active',l.dataset.mode===mode));
-}
-// 기간선택 캘린더 기본값(최근 1년) 세팅
-(function initPeriodRangeDefaults(){
-  const end=new Date();
-  const start=new Date();start.setFullYear(start.getFullYear()-1);
-  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  document.getElementById('period-start').value=fmt(start);
-  document.getElementById('period-end').value=fmt(end);
-})();
-document.querySelectorAll('input[name="period-mode"]').forEach(r=>{
-  r.addEventListener('change',()=>{
-    const mode=currentPeriodMode();
-    setPeriodMode(mode);
-    applyMainPeriodFromInputs();
-  });
+document.getElementById('period-main').addEventListener('click',e=>{
+  const btn=e.target.closest('.pm-btn');if(!btn)return;
+  document.querySelectorAll('.pm-btn').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');mainPeriod=btn.dataset.p;render();
 });
-document.getElementById('period-num').addEventListener('change',applyMainPeriodFromInputs);
-document.getElementById('period-unit').addEventListener('change',applyMainPeriodFromInputs);
-document.getElementById('period-start').addEventListener('change',applyMainPeriodFromInputs);
-document.getElementById('period-end').addEventListener('change',applyMainPeriodFromInputs);
 let searchTimer;
 document.getElementById('search').addEventListener('input',e=>{
   clearTimeout(searchTimer);searchTimer=setTimeout(()=>{searchQuery=e.target.value;render();},180);
@@ -1231,7 +1114,7 @@ function populateSectors(){
   else { sel.value='ALL'; activeSector='ALL'; }
 }
 // ============ CACHE (localStorage, 하루 단위, 압축 저장) ============
-const CACHE_KEY = 'watchlist_data_cache_v7';
+const CACHE_KEY = 'watchlist_data_cache_v5';
 function todayKey(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
